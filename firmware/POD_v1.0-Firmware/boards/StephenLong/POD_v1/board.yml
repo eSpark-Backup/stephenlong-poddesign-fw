@@ -1,0 +1,5 @@
+board:
+  name: POD_v1
+  vendor: StephenLong
+  socs:
+    - name: nrf52840
