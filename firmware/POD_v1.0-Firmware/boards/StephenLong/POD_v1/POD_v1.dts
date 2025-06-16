@@ -54,15 +54,29 @@
 
 &i2c0 {
 	status = "okay";
+	compatible = "nordic,nrf-twim";
 	pinctrl-0 = <&i2c0_default>;
 	pinctrl-names = "default";
 	clock-frequency = <I2C_BITRATE_FAST>;
+	label = "I2C_0";
 	shtc3@70 {
 		compatible = "sensirion,shtcx";
 		reg = <0x70>;
 		measure-mode = "normal";
 		clock-stretching;
-		supply-gpios = <&gpio0 26 0>, <&gpio0 27 0>;
+		label = "SHTC3";
+        status = "okay";
+	};
+
+	max17048:max17048@36 {
+		compatible = "maxim,max17048";
+		reg = <0x36>;
+		// // irq-gpios = <&gpio1 8 (GPIO_ACTIVE_LOW)>;  // ALERT pin
+		// // // interrupts-extended = <&gpio1 8 GPIO_ACTIVE_LOW>;
+		// interrupt-parent = <&gpiote>;  // or <&gpio0> or <&nvic> depending on source
+        // interrupts = <8 1>; // pin 8, edge trigger or mode (see below)
+		label = "MAX17048";
+        status = "okay";
 	};
 };
 
@@ -71,6 +85,7 @@
 };
 
 &gpio1 {
+	label = "GPIO_1";
 	status = "okay";
 };
 

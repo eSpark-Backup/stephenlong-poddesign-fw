@@ -13,12 +13,13 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/hwinfo.h>
 #include <zephyr/drivers/sensor.h>
+#include <zephyr/drivers/fuel_gauge.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/sys/byteorder.h>
 
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/mesh.h>
-
-// #include "shtc3.h"
 
 #define OP_ONOFF_GET       BT_MESH_MODEL_OP_2(0x82, 0x01)
 #define OP_ONOFF_SET       BT_MESH_MODEL_OP_2(0x82, 0x02)
@@ -26,6 +27,101 @@
 #define OP_ONOFF_STATUS    BT_MESH_MODEL_OP_2(0x82, 0x04)
 
 const struct device *shtcx = DEVICE_DT_GET_ANY(sensirion_shtcx);
+const struct device *fuelGuage = DEVICE_DT_GET_ANY(maxim_max17048);
+// const struct device *fuelGuage = DEVICE_DT_GET(DT_NODELABEL(max17048));
+
+#define MAX17048_NODE DT_NODELABEL(max17048)
+static const struct i2c_dt_spec max17048_i2c = I2C_DT_SPEC_GET(MAX17048_NODE);
+
+#define MAX17048_ADDR 0x36
+#define MAX17048_REG_VALRT 0x14
+#define MAX17048_REG_STATUS 0x1A
+
+static int max17048_set_valrt()
+{
+	const struct device *i2c_dev = device_get_binding("I2C_0");
+    uint16_t valrt = 0xDCAA;  // VALRT.MAX = 4.4V, VALRT.MIN = 3.4V
+    uint8_t buf[3];
+
+    buf[0] = MAX17048_REG_VALRT;
+    buf[1] = valrt & 0xFF;          // LSB first (MIN)
+    buf[2] = (valrt >> 8) & 0xFF;   // MSB (MAX)
+
+
+    int ret = i2c_write(i2c_dev, buf, sizeof(buf), MAX17048_ADDR);
+    if (ret < 0) {
+        printk("Failed to write VALRT: %d\n", ret);
+        return ret;
+    }
+
+    printk("VALRT configured: MIN = 3.4V, MAX = 4.4V\n");
+    return 0;
+}
+
+#define ALERT_PIN 8
+#define ALERT_PORT "GPIO_1"
+
+static const struct device *alert_gpio_dev;
+static struct gpio_callback alert_cb_data;
+
+void max17048_alert_handler(const struct device *dev, struct gpio_callback *cb,
+                            uint32_t pins)
+{
+    printk("MAX17048 ALERT triggered!\n");
+	
+    // TODO: Read MAX17048 STATUS register to clear the alert.
+    uint8_t status_raw[2];
+    int ret;
+
+    if (!device_is_ready(max17048_i2c.bus)) {
+        printk("I2C bus not ready\n");
+        return;
+    }
+
+    ret = i2c_burst_read_dt(&max17048_i2c, MAX17048_REG_STATUS, status_raw, 2);
+    if (ret) {
+        printk("Failed to read STATUS register: %d\n", ret);
+        return;
+    }
+
+    uint16_t status = (status_raw[1] << 8) | status_raw[0];
+    printk("STATUS before clearing ALRT: 0x%04x\n", status);
+
+    // Clear ALRT bit (bit 5)
+    status &= ~(1 << 5);
+
+    uint8_t write_buf[2] = {
+        status & 0xFF,
+        (status >> 8) & 0xFF
+    };
+
+    ret = i2c_write_dt(&max17048_i2c, write_buf, sizeof(write_buf));
+    if (ret) {
+        printk("Failed to clear STATUS: %d\n", ret);
+    } else {
+        printk("Cleared ALRT bit in STATUS register\n");
+    }
+}
+
+void configure_max17048_alert_pin(void)
+{
+    alert_gpio_dev = device_get_binding(ALERT_PORT);
+    if (!alert_gpio_dev) {
+        printk("Error: Failed to bind to GPIO port\n");
+        return;
+    }
+
+    gpio_pin_configure(alert_gpio_dev, ALERT_PIN,
+                       GPIO_INPUT);
+    gpio_pin_interrupt_configure(alert_gpio_dev, ALERT_PIN,
+                                 GPIO_INT_EDGE_TO_INACTIVE);
+
+    gpio_init_callback(&alert_cb_data, max17048_alert_handler,
+                       BIT(ALERT_PIN));
+    gpio_add_callback(alert_gpio_dev, &alert_cb_data);
+
+    printk("MAX17048 ALERT interrupt configured on P1.08\n");
+}
 
 // static void attention_on(const struct bt_mesh_model *mod)
 // {
@@ -446,24 +542,48 @@ int main(void)
 	
 	printk("Initializing complete.\n");
 
-
+	if ((shtcx == NULL) || (fuelGuage == NULL)) {
+		printk("\nError: I2C device not found.\n");
+		return 0;
+	}
 
 	if (!device_is_ready(shtcx)) {
         printk("SHTCx device not ready");
         return 0;
     }
+	if (!device_is_ready(fuelGuage)) {
+        printk("MAX17048 device not ready");
+        return 0;
+    }
+	// Setup VALRT thresholds and interrupt
+    max17048_set_valrt();
+	configure_max17048_alert_pin();
 
-    printk("SHTCx sensor initialized");
+    printk("SHTCx sensor initialized\n");
+    printk("MAX17048 sensor initialized\n");
 
     struct sensor_value temp, humidity;
+	fuel_gauge_prop_t props[] = {
+			FUEL_GAUGE_RUNTIME_TO_EMPTY,
+			FUEL_GAUGE_RUNTIME_TO_FULL,
+			FUEL_GAUGE_RELATIVE_STATE_OF_CHARGE,
+			FUEL_GAUGE_VOLTAGE,
+		};
+	union fuel_gauge_prop_val vals[ARRAY_SIZE(props)];
 
 	while (1) {
         int ret = sensor_sample_fetch(shtcx);
         if (ret < 0) {
-            printk("Failed to fetch data from SHTCx sensor: %d", ret);
+            printk("Failed to fetch data from SHTCx sensor: %d\n", ret);
             k_sleep(K_SECONDS(2));
             continue;
         }
+		ret = fuel_gauge_get_props(fuelGuage, props, vals, ARRAY_SIZE(props));
+		if (ret < 0) {
+			printk("Failed to fetch data from MAX17048 sensor: %d\n", ret);
+			k_sleep(K_SECONDS(2));
+			continue;
+		}
 
         sensor_channel_get(shtcx, SENSOR_CHAN_AMBIENT_TEMP, &temp);
         sensor_channel_get(shtcx, SENSOR_CHAN_HUMIDITY, &humidity);
@@ -478,8 +598,17 @@ int main(void)
 		int hum_int = (int)hum_perc;
 		int hum_frac = (int)((hum_perc - hum_int) * 100);
 
+		int voltage = vals[3].voltage;
+		int volts = voltage / 1000000;
+		int millivolts = (voltage % 1000000) / 10000;  // Get 2 decimal digits
+
 		printk("Temperature: %d.%02d °C\n", temp_int, temp_frac);
 		printk("Humidity: %d.%02d %%\n", hum_int, hum_frac);
+
+		printk("Time to empty %d minutes\n", vals[0].runtime_to_empty);
+		printk("Time to full %d minutes\n", vals[1].runtime_to_full);
+		printk("Charge %d%%\n", vals[2].relative_state_of_charge);
+		printk("Voltage %d.%02d V\n", volts, millivolts);
 
         k_sleep(K_SECONDS(5));
     }
