@@ -27,120 +27,9 @@
 #define OP_ONOFF_STATUS    BT_MESH_MODEL_OP_2(0x82, 0x04)
 
 const struct device *shtcx = DEVICE_DT_GET_ANY(sensirion_shtcx);
-const struct device *fuelGuage = DEVICE_DT_GET_ANY(maxim_max17048);
-// const struct device *fuelGuage = DEVICE_DT_GET(DT_NODELABEL(max17048));
+const struct device *fuelGuage = DEVICE_DT_GET_ANY(max_max17048_pod);
+// const struct device *fuelGuage = DEVICE_DT_GET(DT_NODELABEL(max17048_pod));
 
-#define MAX17048_NODE DT_NODELABEL(max17048)
-static const struct i2c_dt_spec max17048_i2c = I2C_DT_SPEC_GET(MAX17048_NODE);
-
-#define MAX17048_ADDR 0x36
-#define MAX17048_REG_VALRT 0x14
-#define MAX17048_REG_STATUS 0x1A
-
-static int max17048_set_valrt()
-{
-	const struct device *i2c_dev = device_get_binding("I2C_0");
-    uint16_t valrt = 0xDCAA;  // VALRT.MAX = 4.4V, VALRT.MIN = 3.4V
-    uint8_t buf[3];
-
-    buf[0] = MAX17048_REG_VALRT;
-    buf[1] = valrt & 0xFF;          // LSB first (MIN)
-    buf[2] = (valrt >> 8) & 0xFF;   // MSB (MAX)
-
-
-    int ret = i2c_write(i2c_dev, buf, sizeof(buf), MAX17048_ADDR);
-    if (ret < 0) {
-        printk("Failed to write VALRT: %d\n", ret);
-        return ret;
-    }
-
-    printk("VALRT configured: MIN = 3.4V, MAX = 4.4V\n");
-    return 0;
-}
-
-#define ALERT_PIN 8
-#define ALERT_PORT "GPIO_1"
-
-static const struct device *alert_gpio_dev;
-static struct gpio_callback alert_cb_data;
-
-void max17048_alert_handler(const struct device *dev, struct gpio_callback *cb,
-                            uint32_t pins)
-{
-    printk("MAX17048 ALERT triggered!\n");
-	
-    // TODO: Read MAX17048 STATUS register to clear the alert.
-    uint8_t status_raw[2];
-    int ret;
-
-    if (!device_is_ready(max17048_i2c.bus)) {
-        printk("I2C bus not ready\n");
-        return;
-    }
-
-    ret = i2c_burst_read_dt(&max17048_i2c, MAX17048_REG_STATUS, status_raw, 2);
-    if (ret) {
-        printk("Failed to read STATUS register: %d\n", ret);
-        return;
-    }
-
-    uint16_t status = (status_raw[1] << 8) | status_raw[0];
-    printk("STATUS before clearing ALRT: 0x%04x\n", status);
-
-    // Clear ALRT bit (bit 5)
-    status &= ~(1 << 5);
-
-    uint8_t write_buf[2] = {
-        status & 0xFF,
-        (status >> 8) & 0xFF
-    };
-
-    ret = i2c_write_dt(&max17048_i2c, write_buf, sizeof(write_buf));
-    if (ret) {
-        printk("Failed to clear STATUS: %d\n", ret);
-    } else {
-        printk("Cleared ALRT bit in STATUS register\n");
-    }
-}
-
-void configure_max17048_alert_pin(void)
-{
-    alert_gpio_dev = device_get_binding(ALERT_PORT);
-    if (!alert_gpio_dev) {
-        printk("Error: Failed to bind to GPIO port\n");
-        return;
-    }
-
-    gpio_pin_configure(alert_gpio_dev, ALERT_PIN,
-                       GPIO_INPUT);
-    gpio_pin_interrupt_configure(alert_gpio_dev, ALERT_PIN,
-                                 GPIO_INT_EDGE_TO_INACTIVE);
-
-    gpio_init_callback(&alert_cb_data, max17048_alert_handler,
-                       BIT(ALERT_PIN));
-    gpio_add_callback(alert_gpio_dev, &alert_cb_data);
-
-    printk("MAX17048 ALERT interrupt configured on P1.08\n");
-}
-
-// static void attention_on(const struct bt_mesh_model *mod)
-// {
-// 	board_led_set(true);
-// }
-
-// static void attention_off(const struct bt_mesh_model *mod)
-// {
-// 	board_led_set(false);
-// }
-
-// static const struct bt_mesh_health_srv_cb health_cb = {
-// 	.attn_on = attention_on,
-// 	.attn_off = attention_off,
-// };
-
-// static struct bt_mesh_health_srv health_srv = {
-// 	.cb = &health_cb,
-// };
 
 BT_MESH_HEALTH_PUB_DEFINE(health_pub, 0);
 
@@ -544,6 +433,7 @@ int main(void)
 
 	if ((shtcx == NULL) || (fuelGuage == NULL)) {
 		printk("\nError: I2C device not found.\n");
+		printk("shtcx: %p  fuelGuage: %p\n", shtcx, fuelGuage);
 		return 0;
 	}
 
@@ -555,9 +445,9 @@ int main(void)
         printk("MAX17048 device not ready");
         return 0;
     }
-	// Setup VALRT thresholds and interrupt
-    max17048_set_valrt();
-	configure_max17048_alert_pin();
+	// // Setup VALRT thresholds and interrupt
+    // max17048_set_valrt();
+	// configure_max17048_alert_pin();
 
     printk("SHTCx sensor initialized\n");
     printk("MAX17048 sensor initialized\n");

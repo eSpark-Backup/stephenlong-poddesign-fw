@@ -9,6 +9,8 @@ project(POD_v1.0)
 FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE ${app_sources})
 
+add_subdirectory(drivers)
+
 # set(DTC_EXTRA_BINDINGS_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/dts/bindings)
 
 # add_library(pod_libraries STATIC

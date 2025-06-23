@@ -68,19 +68,22 @@
         status = "okay";
 	};
 
-	max17048:max17048@36 {
-		compatible = "maxim,max17048";
+	max17048_pod@36 {
+		compatible = "maxim,max17048_pod";
 		reg = <0x36>;
-		// // irq-gpios = <&gpio1 8 (GPIO_ACTIVE_LOW)>;  // ALERT pin
+		alrt-gpios = <&gpio1 8 (GPIO_ACTIVE_LOW)>;  // ALERT pin
+		// irq-gpios = <&gpio1 8 (GPIO_ACTIVE_LOW)>;  // ALERT pin
 		// // // interrupts-extended = <&gpio1 8 GPIO_ACTIVE_LOW>;
 		// interrupt-parent = <&gpiote>;  // or <&gpio0> or <&nvic> depending on source
         // interrupts = <8 1>; // pin 8, edge trigger or mode (see below)
-		label = "MAX17048";
+		label = "MAX17048_POD";
         status = "okay";
+		zephyr,pm-device-runtime-auto;
 	};
 };
 
 &gpio0 {
+	label = "GPIO_0";
 	status = "okay";
 };
 

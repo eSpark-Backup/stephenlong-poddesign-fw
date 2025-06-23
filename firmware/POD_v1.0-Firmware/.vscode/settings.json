@@ -1,0 +1,25 @@
+{
+    "files.associations": {
+        "gpio.h": "c",
+        "i2c.h": "c",
+        "fuel_gauge.h": "c",
+        "array": "c",
+        "string": "c",
+        "vector": "c",
+        "string_view": "c",
+        "functional": "c",
+        "limits": "c",
+        "ostream": "c",
+        "ratio": "c",
+        "streambuf": "c",
+        "tuple": "c",
+        "hwinfo.h": "c",
+        "devicetree.h": "c",
+        "pod_max17048.h": "c",
+        "max17048_pod.h": "c",
+        "util.h": "c",
+        "kernel.h": "c",
+        "byteorder.h": "c",
+        "mesh.h": "c"
+    }
+}
