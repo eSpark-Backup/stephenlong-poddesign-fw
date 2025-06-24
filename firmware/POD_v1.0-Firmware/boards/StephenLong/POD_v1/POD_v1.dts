@@ -71,12 +71,17 @@
 	max17048:max17048@36 {
 		compatible = "maxim,max17048";
 		reg = <0x36>;
-		// // irq-gpios = <&gpio1 8 (GPIO_ACTIVE_LOW)>;  // ALERT pin
-		// // // interrupts-extended = <&gpio1 8 GPIO_ACTIVE_LOW>;
-		// interrupt-parent = <&gpiote>;  // or <&gpio0> or <&nvic> depending on source
-        // interrupts = <8 1>; // pin 8, edge trigger or mode (see below)
 		label = "MAX17048";
         status = "okay";
+	};
+
+	ads1115:ads1115@49 {
+		compatible = "ti,ads1115";
+		reg = <0x49>;
+		#io-channel-cells = <0x1>;
+		// zephyr,gain = <>;
+		label = "ADS1115";
+		status = "okay";
 	};
 };
 

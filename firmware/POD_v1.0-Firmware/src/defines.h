@@ -3,6 +3,8 @@
 #include <zephyr/logging/log.h>
 
 #define MAX17048_POD_LOG_LEVEL      4
+#define ADS1115_POD_LOG_LEVEL       4
+#define SHTC6_POD_LOG_LEVEL         4
 #define APP_LOG_LEVEL               4
 
 

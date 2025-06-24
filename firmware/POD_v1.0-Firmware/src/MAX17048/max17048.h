@@ -2,10 +2,10 @@
 
 #include "defines.h"
 
-#include <zephyr/device.h>
-#include <zephyr/devicetree.h>
+// #include <zephyr/device.h>
+// #include <zephyr/devicetree.h>
 
-#define MAX17048_NODE DT_NODELABEL(max17048)
+// #define MAX17048_NODE DT_NODELABEL(max17048)
 
 extern const struct device *_max17048;;
 extern const struct device *alert_gpio_dev;

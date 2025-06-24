@@ -14,6 +14,8 @@
         "app_memdomain.h": "c",
         "log.h": "c",
         "kernel.h": "c",
-        "i2c.h": "c"
+        "i2c.h": "c",
+        "ads1115.h": "c",
+        "defines.h": "c"
     }
 }

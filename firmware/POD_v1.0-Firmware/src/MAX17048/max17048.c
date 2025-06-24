@@ -26,7 +26,7 @@ void max17048_i2c_write(uint8_t reg_addr, const uint8_t *data, size_t data_len)
 
     int ret = i2c_write_dt(cfg, buffer, sizeof(buffer));
     if (ret < 0) {
-        LOG_ERR("Failed to write register: 0x%x  with error: ", reg_addr, ret);
+        LOG_ERR("Failed to write register: 0x%x  with error: %d", reg_addr, ret);
         return;
     }
 }
@@ -36,7 +36,7 @@ void max17048_i2c_read(uint8_t reg_addr, const uint8_t *data, size_t data_len)
     const struct i2c_dt_spec *cfg = _max17048->config;
     int ret = i2c_write_read_dt(cfg, &reg_addr, sizeof(reg_addr), data, data_len);
     if (ret < 0) {
-        LOG_ERR("Failed to read register: 0x%x  with error: ", reg_addr, ret);
+        LOG_ERR("Failed to read register: 0x%x  with error: %d", reg_addr, ret);
         return;
     }
 }
@@ -49,7 +49,7 @@ void max17048_work_handler(struct k_work *work)
 
     // while(1)
     // {
-        uint8_t temp[2];
+    //     uint8_t temp[2];
         uint8_t status_raw[2];
         uint8_t config_reg[2];
 
@@ -144,8 +144,20 @@ void init_max17048(const struct device* max17048)
 {
     _max17048 = max17048;
 
+    if ((_max17048 == NULL)) {
+		LOG_ERR("I2C device not found.");
+		return;
+	}
+
+	if (!device_is_ready(_max17048)) {
+        LOG_ERR("MAX17048 device not ready");
+        return;
+    }
+
     max17048_set_valrt(MAX17048_MIN_VOLT_THRESH, MAX17048_MAX_VOLT_THRESH);
 	configure_max17048_alert_pin();
 
     k_work_init(&max17048_work, max17048_work_handler);
+
+    LOG_DBG("MAX17048 sensor initialized");
 }
