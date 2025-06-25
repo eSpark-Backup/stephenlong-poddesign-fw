@@ -23,8 +23,20 @@ extern struct gpio_callback alert_cb_data;
 #define MAX17048_MIN_VOLT_THRESH        FUEL_GUAGE_MIN_THRESH
 #define MAX17048_MAX_VOLT_THRESH        FUEL_GUAGE_MAX_THRESH
 
+enum worker_tasks_e
+{
+    NO_TASK,
+    INTERRUPT_TASK,
+    DATA_ACQUIRE_TASK,
+};
+
 void max17048_alert_handler(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+// void max17048_timer_handler(struct k_timer *timer);
+
 void configure_max17048_alert_pin(void);
 int  max17048_set_valrt(float min, float max);
+
+int get_batt_voltage(void);
+uint8_t get_batt_soc(void);
 
 void init_max17048(const struct device* max17048);

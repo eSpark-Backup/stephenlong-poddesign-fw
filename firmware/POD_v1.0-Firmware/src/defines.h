@@ -12,6 +12,8 @@
 #define FUEL_GUAGE_MIN_THRESH       3.4
 #define FUEL_GUAGE_MAX_THRESH       4.4
 
+#define DC_VOLTAGE_RANGE            48      // 0-48V
+#define DC_CURRENT_RANGE            50      // 0-50A
 
 // GPIOs
 #define GPIO_PORT_0     gpio0//"GPIO_0"
@@ -45,3 +47,7 @@
 #define GROUND_FAULT_SCR_SIG_VA     12
 #define GROUND_FAULT_SCR_SIG_VB     13
 #define GROUND_FAULT_SCR_SIG_VC     14
+
+static inline float map_value(float val, float in_min, float in_max, float out_min, float out_max) {
+    return out_min + ((val - in_min) * (out_max - out_min) / (in_max - in_min));
+}

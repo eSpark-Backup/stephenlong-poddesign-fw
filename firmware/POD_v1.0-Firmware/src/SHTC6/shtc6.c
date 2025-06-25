@@ -13,7 +13,7 @@ static struct k_work _shtc6_worker;
 
 void shtc6_work_handler(struct k_work *work)
 {
-    LOG_DBG("Working on fetching data.");
+    LOG_DBG("Worker triggerred.");
 
     int ret = sensor_sample_fetch(_shtc6);
     if (ret < 0) {
@@ -60,7 +60,7 @@ void init_shtc6(const struct device* shtc6)
     k_work_submit(&_shtc6_worker);
 
     k_timer_init(&_shtc6_timer, shtc6_timer_interrupt, NULL);
-    k_timer_start(&_shtc6_timer, K_SECONDS(5), K_SECONDS(5)); // e.g., every 5 seconds
+    k_timer_start(&_shtc6_timer, K_SECONDS(5), K_SECONDS(5));
 
     LOG_DBG("SHTCx sensor initialized");
 }
