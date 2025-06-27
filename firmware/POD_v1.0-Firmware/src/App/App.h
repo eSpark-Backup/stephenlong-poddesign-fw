@@ -12,4 +12,4 @@ extern const struct device *powerMeter;         // ADE9000 pwoer processor
 
 
 void app_init(void);
-void loop(void);
+void app_loop(void);

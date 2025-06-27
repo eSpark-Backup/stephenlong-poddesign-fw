@@ -6,7 +6,7 @@
 
 LOG_MODULE_REGISTER(SHTC6_POD, ADS1115_POD_LOG_LEVEL);
 
-const struct device *_shtc6;
+const struct device *_shtc6 = NULL;
 
 static struct k_timer _shtc6_timer;
 static struct k_work _shtc6_worker;

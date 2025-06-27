@@ -18,7 +18,7 @@
 
 extern const struct device *_ads1115;
 
-uint16_t get_dc_voltage(void);
+float get_dc_voltage(void);
 float get_dc_current(void);
 
 void init_ads1115(const struct device* ads1115);

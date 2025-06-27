@@ -8,8 +8,8 @@
 // #define MAX17048_NODE DT_NODELABEL(max17048)
 
 extern const struct device *_max17048;;
-extern const struct device *alert_gpio_dev;
-extern struct gpio_callback alert_cb_data;
+extern const struct device *_max17048_alert_gpio_dev;
+extern struct gpio_callback _max17048_alert_cb_data;
 
 #define MAX17048_ADDR       FUEL_GAUGE_IC_ADDR
 #define MAX17048_REG_VALRT  0x14

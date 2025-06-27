@@ -110,6 +110,13 @@
 		// 	zephyr,resolution = < 15 >;
 		// };
 	};
+
+	adxl345: adxl345@53 {
+		compatible = "adi,adxl345";
+		reg = <0x53>;
+		// int2-gpios = <&gpio1 9 0>;
+		// supply-gpios = <&gpio1 11 0>;
+	};
 };
 
 &adc {

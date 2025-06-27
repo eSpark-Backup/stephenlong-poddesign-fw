@@ -16,6 +16,7 @@ add_subdirectory(src/App)
 add_subdirectory(src/SHTC6)
 add_subdirectory(src/MAX17048)
 add_subdirectory(src/ADS1115)
+add_subdirectory(src/ADXL345)
 # add_subdirectory(libs)
 # add_subdirectory(drivers)
 

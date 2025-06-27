@@ -429,7 +429,7 @@ int main(void)
 		dev_uuid[0] = 0xdd;
 		dev_uuid[1] = 0xdd;
 	}
-	printk("Device id is\n");
+	printk("Device id is: ");
 	print_array(dev_uuid, 16);
 
 	// k_work_init(&button_work, button_pressed);
@@ -451,77 +451,6 @@ int main(void)
 	printk("Initializing complete.\n");
 
 	app_init();
-
-	// if ((shtcx == NULL) || (fuelGuage == NULL)) {
-	// 	printk("\nError: I2C device not found.\n");
-	// 	return 0;
-	// }
-
-	// if (!device_is_ready(shtcx)) {
-    //     printk("SHTCx device not ready");
-    //     return 0;
-    // }
-	// if (!device_is_ready(fuelGuage)) {
-    //     printk("MAX17048 device not ready");
-    //     return 0;
-    // }
-	// // Setup VALRT thresholds and interrupt
-    // max17048_set_valrt();
-	// configure_max17048_alert_pin();
-
-    // printk("SHTCx sensor initialized\n");
-    // printk("MAX17048 sensor initialized\n");
-
-    // struct sensor_value temp, humidity;
-	// fuel_gauge_prop_t props[] = {
-	// 		FUEL_GAUGE_RUNTIME_TO_EMPTY,
-	// 		FUEL_GAUGE_RUNTIME_TO_FULL,
-	// 		FUEL_GAUGE_RELATIVE_STATE_OF_CHARGE,
-	// 		FUEL_GAUGE_VOLTAGE,
-	// 	};
-	// union fuel_gauge_prop_val vals[ARRAY_SIZE(props)];
-
-	// while (1) {
-    //     int ret = sensor_sample_fetch(shtcx);
-    //     if (ret < 0) {
-    //         printk("Failed to fetch data from SHTCx sensor: %d\n", ret);
-    //         k_sleep(K_SECONDS(2));
-    //         continue;
-    //     }
-	// 	ret = fuel_gauge_get_props(fuelGuage, props, vals, ARRAY_SIZE(props));
-	// 	if (ret < 0) {
-	// 		printk("Failed to fetch data from MAX17048 sensor: %d\n", ret);
-	// 		k_sleep(K_SECONDS(2));
-	// 		continue;
-	// 	}
-
-    //     sensor_channel_get(shtcx, SENSOR_CHAN_AMBIENT_TEMP, &temp);
-    //     sensor_channel_get(shtcx, SENSOR_CHAN_HUMIDITY, &humidity);
-
-	// 	double temp_c = sensor_value_to_double(&temp);
-	// 	double hum_perc = sensor_value_to_double(&humidity);
-
-    //     // Extract integer and fractional parts
-	// 	int temp_int = (int)temp_c;
-	// 	int temp_frac = (int)((temp_c - temp_int) * 100);
-
-	// 	int hum_int = (int)hum_perc;
-	// 	int hum_frac = (int)((hum_perc - hum_int) * 100);
-
-	// 	int voltage = vals[3].voltage;
-	// 	int volts = voltage / 1000000;
-	// 	int millivolts = (voltage % 1000000) / 10000;  // Get 2 decimal digits
-
-	// 	printk("Temperature: %d.%02d °C\n", temp_int, temp_frac);
-	// 	printk("Humidity: %d.%02d %%\n", hum_int, hum_frac);
-
-	// 	printk("Time to empty %d minutes\n", vals[0].runtime_to_empty);
-	// 	printk("Time to full %d minutes\n", vals[1].runtime_to_full);
-	// 	printk("Charge %d%%\n", vals[2].relative_state_of_charge);
-	// 	printk("Voltage %d.%02d V\n", volts, millivolts);
-
-    //     k_sleep(K_SECONDS(5));
-    // }
 
 	return 0;
 }

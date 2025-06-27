@@ -1,14 +1,11 @@
 #include "ads1115.h"
 
-// #include "ads1x15.h" 
-// #include "ads1115_defs.h" 
-
 #include <zephyr/device.h>
 #include <zephyr/drivers/adc.h>
 
 LOG_MODULE_REGISTER(ADS1115_POD, ADS1115_POD_LOG_LEVEL);
 
-const struct device *_ads1115;
+const struct device *_ads1115 = NULL;
 
 static struct k_timer _ads1115_timer;
 static struct k_work _ads1115_worker;
@@ -62,19 +59,20 @@ void read_adc_values(void)
     }
 }
 
-uint16_t get_dc_voltage(void)
+float get_dc_voltage(void)
 {
     uint16_t mVolts = (resultsRaw[DC_VOLTAGE_CHANNEL] * ADS1115_LEAST_COUNT);
     float dc_mVolts= map_value(mVolts, VOLTAGE_RANGE_MIN, 3.3, VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX);
 
-    return (uint16_t)dc_mVolts;
+    // return (uint16_t)dc_mVolts;
+    return dc_mVolts/1000.0f;
 }
 
 float get_dc_current(void)
 {
     float mVolts = (resultsRaw[DC_CURRENT_CHANNEL] * ADS1115_LEAST_COUNT);
     mVolts /= 1000;
-    mVolts -= HALLCURRENT8120A_QUIESCENT_VOLTAGE;
+    mVolts -= (HALLCURRENT8120A_QUIESCENT_VOLTAGE + 0.0042);
     float dc_mAmps = mVolts/0.01f;//map_value(mVolts, CURRENT_RANGE_MIN, 3.3, CURRENT_RANGE_MIN, CURRENT_RANGE_MAX);
 
     return dc_mAmps;

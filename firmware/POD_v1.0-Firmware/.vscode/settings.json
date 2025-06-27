@@ -17,6 +17,7 @@
         "i2c.h": "c",
         "ads1115.h": "c",
         "defines.h": "c",
-        "adc.h": "c"
+        "adc.h": "c",
+        "adxl345.h": "c"
     }
 }

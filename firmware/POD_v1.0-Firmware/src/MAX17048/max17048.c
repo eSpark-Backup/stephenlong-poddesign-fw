@@ -11,9 +11,9 @@
 
 LOG_MODULE_REGISTER(MAX17048_POD, MAX17048_POD_LOG_LEVEL);
 
-const struct device *_max17048;
-const struct device *alert_gpio_dev = DEVICE_DT_GET(DT_NODELABEL(ALERT_PORT));
-struct gpio_callback alert_cb_data;
+const struct device *_max17048 = NULL;
+const struct device *_max17048_alert_gpio_dev = DEVICE_DT_GET(DT_NODELABEL(ALERT_PORT));
+struct gpio_callback _max17048_alert_cb_data;
 
 static struct k_timer _max17048_timer;
 static struct k_work _max17048_worker;
@@ -125,8 +125,7 @@ void max17048_work_handler(struct k_work *work)
     }
 }
 
-void max17048_alert_handler(const struct device *dev, struct gpio_callback *cb,
-                            uint32_t pins)
+void max17048_alert_handler(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
     // LOG_DBG("MAX17048 ALERT triggered!");
     task = INTERRUPT_TASK;
@@ -141,21 +140,21 @@ void max17048_timer_handler(struct k_timer *timer)
 
 void configure_max17048_alert_pin(void)
 {
-    if (!alert_gpio_dev) {
+    if (!_max17048_alert_gpio_dev) {
         LOG_ERR("Error: Failed to bind to GPIO port");
         return;
     }
 
-    gpio_pin_configure(alert_gpio_dev, ALERT_PIN,
+    gpio_pin_configure(_max17048_alert_gpio_dev, ALERT_PIN,
                        GPIO_INPUT);
-    gpio_pin_interrupt_configure(alert_gpio_dev, ALERT_PIN,
+    gpio_pin_interrupt_configure(_max17048_alert_gpio_dev, ALERT_PIN,
                                  GPIO_INT_EDGE_FALLING);
 
-    gpio_init_callback(&alert_cb_data, max17048_alert_handler,
+    gpio_init_callback(&_max17048_alert_cb_data, max17048_alert_handler,
                        BIT(ALERT_PIN));
-    gpio_add_callback(alert_gpio_dev, &alert_cb_data);
+    gpio_add_callback(_max17048_alert_gpio_dev, &_max17048_alert_cb_data);
 
-    LOG_DBG("MAX17048 ALERT interrupt configured on %s.%d", alert_gpio_dev->name, ALERT_PIN);
+    LOG_DBG("MAX17048 ALERT interrupt configured on %s.%d", _max17048_alert_gpio_dev->name, ALERT_PIN);
 }
 
 int max17048_set_valrt(float min, float max)

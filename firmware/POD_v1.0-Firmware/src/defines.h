@@ -3,7 +3,8 @@
 #include <zephyr/logging/log.h>
 
 #define MAX17048_POD_LOG_LEVEL      4
-#define ADS1115_POD_LOG_LEVEL       4
+#define ADXL345_POD_LOG_LEVEL       4
+#define ADS1115_POD_LOG_LEVEL       3
 #define SHTC6_POD_LOG_LEVEL         4
 #define APP_LOG_LEVEL               4
 
@@ -12,7 +13,7 @@
 #define FUEL_GUAGE_MIN_THRESH       3.4
 #define FUEL_GUAGE_MAX_THRESH       4.4
 
-#define DC_VOLTAGE_RANGE            48      // 0-48V
+#define DC_VOLTAGE_RANGE            110     // 0-110V
 #define DC_CURRENT_RANGE            50      // 0-50A
 
 // GPIOs
