@@ -23,40 +23,40 @@ const struct device *imu = DEVICE_DT_GET_ANY(adi_adxl345);
 void app_init(void)
 {
 	init_adxl345(imu);
-	// init_ads1115(acdcMeter);
-	// init_shtc6(tempSensor);
-	// init_max17048(fuelGuage);
+	init_ads1115(acdcMeter);
+	init_shtc6(tempSensor);
+	init_max17048(fuelGuage);
 
-	// while (1) {
+	while (1) {
 
-	// 	double temp_c = get_temp();
-	// 	double hum_perc = get_humidity();
-	// 	int soc = get_batt_soc();
-	// 	int batt_volt = get_batt_voltage();
+		double temp_c = get_temp();
+		double hum_perc = get_humidity();
+		int soc = get_batt_soc();
+		int batt_volt = get_batt_voltage();
 
-    //     // Extract integer and fractional parts
-	// 	int temp_int = (int)temp_c;
-	// 	int temp_frac = (int)((temp_c - temp_int) * 100);
+        // Extract integer and fractional parts
+		int temp_int = (int)temp_c;
+		int temp_frac = (int)((temp_c - temp_int) * 100);
 
-	// 	int hum_int = (int)hum_perc;
-	// 	int hum_frac = (int)((hum_perc - hum_int) * 100);
+		int hum_int = (int)hum_perc;
+		int hum_frac = (int)((hum_perc - hum_int) * 100);
 
-	// 	int voltage = batt_volt;
-	// 	int volts = voltage / 1000000;
-	// 	int millivolts = (voltage % 1000000) / 10000;  // Get 2 decimal digits
+		int voltage = batt_volt;
+		int volts = voltage / 1000000;
+		int millivolts = (voltage % 1000000) / 10000;  // Get 2 decimal digits
 
-	// 	LOG_INF("Temperature: %d.%02d °C", temp_int, temp_frac);
-	// 	LOG_INF("Humidity: %d.%02d %%", hum_int, hum_frac);
-	// 	LOG_INF("DC Voltage: %2.3f V", get_dc_voltage());
-	// 	LOG_INF("DC Current: %2.3f A", get_dc_current());
+		LOG_INF("Temperature: %d.%02d °C", temp_int, temp_frac);
+		LOG_INF("Humidity: %d.%02d %%", hum_int, hum_frac);
+		LOG_INF("DC Voltage: %2.3f V", get_dc_voltage());
+		LOG_INF("DC Current: %2.3f A", get_dc_current());
 
-	// 	// LOG_INF("Time to empty %d minutes", vals[0].runtime_to_empty);
-	// 	// LOG_INF("Time to full %d minutes", vals[1].runtime_to_full);
-	// 	LOG_INF("Charge %d%%", soc);//vals[2].relative_state_of_charge);
-	// 	LOG_INF("Voltage %d.%02d V", volts, millivolts);
+		// LOG_INF("Time to empty %d minutes", vals[0].runtime_to_empty);
+		// LOG_INF("Time to full %d minutes", vals[1].runtime_to_full);
+		LOG_INF("Charge %d%%", soc);//vals[2].relative_state_of_charge);
+		LOG_INF("Voltage %d.%02d V", volts, millivolts);
 
-    //     k_sleep(K_SECONDS(1));
-    // }
+        k_sleep(K_SECONDS(1));
+    }
 
     return;
 }
