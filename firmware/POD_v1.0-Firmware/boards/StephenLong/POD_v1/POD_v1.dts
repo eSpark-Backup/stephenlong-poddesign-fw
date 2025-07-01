@@ -1,0 +1,135 @@
+/dts-v1/;
+#include <nordic/nrf52840_qiaa.dtsi>
+#include "POD_v1-pinctrl.dtsi"
+
+/ {
+	model = "Stephen Long POD project - board v1.0";
+	compatible = "StephenLong,POD-v1";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+	};
+};
+
+&flash0 {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x00000000 DT_SIZE_K(48)>;
+		};
+
+		slot0_partition: partition@c000 {
+			label = "image-0";
+			reg = <0x0000c000 DT_SIZE_K(472)>;
+		};
+
+		slot1_partition: partition@82000 {
+			label = "image-1";
+			reg = <0x00082000 DT_SIZE_K(472)>;
+		};
+
+		storage_partition: partition@f8000 {
+			label = "storage";
+			reg = <0x000f8000 DT_SIZE_K(32)>;
+		};
+	};
+};
+&usbd {
+	status = "disabled";
+};
+
+&gpiote {
+	status = "okay";
+};
+
+&systick {
+	status = "disabled";
+};
+
+&i2c0 {
+	status = "okay";
+	compatible = "nordic,nrf-twim";
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-names = "default";
+	clock-frequency = <I2C_BITRATE_FAST>;
+	label = "I2C_0";
+	shtc3@70 {
+		compatible = "sensirion,shtcx";
+		reg = <0x70>;
+		measure-mode = "normal";
+		clock-stretching;
+		label = "SHTC3";
+        status = "okay";
+	};
+
+	max17048:max17048@36 {
+		compatible = "maxim,max17048";
+		reg = <0x36>;
+		label = "MAX17048";
+        status = "okay";
+	};
+
+	ads1115:ads1115@49 {
+		compatible = "ti,ads1115";
+		reg = <0x49>;
+		#io-channel-cells = <0x1>;
+		label = "ADS1115";
+		status = "okay";
+		// channel@0 {
+		// 	reg = <0>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+		// channel@1 {
+		// 	reg = <1>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+		// channel@2 {
+		// 	reg = <2>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+		// channel@3 {
+		// 	reg = <3>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+	};
+
+	adxl345: adxl345@53 {
+		compatible = "adi,adxl345";
+		reg = <0x53>;
+		// int2-gpios = <&gpio1 9 0>;
+		// supply-gpios = <&gpio1 11 0>;
+	};
+};
+
+&adc {
+	status = "okay";
+};
+
+&gpio0 {
+	label = "GPIO_0";
+	status = "okay";
+};
+
+&gpio1 {
+	label = "GPIO_1";
+	status = "okay";
+};
+

@@ -1,21 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.20.0)
-set(QEMU_EXTRA_FLAGS -s)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(Base_Project)
+project(POD_v1.0)
+target_include_directories(app PRIVATE src)
 
-target_sources(app PRIVATE src/main.c)
+# # Include application application event headers
+# zephyr_library_include_directories(src/events)
 
-# if(CONFIG_BOARD_BBC_MICROBIT)
-#   target_sources(app PRIVATE src/microbit.c)
-# else()
-#   target_sources(app PRIVATE src/board.c)
-# endif()
+FILE(GLOB app_sources src/*.c)
+target_sources(app PRIVATE ${app_sources})
 
-# if (CONFIG_BUILD_WITH_TFM)
-#   target_include_directories(app PRIVATE
-#     $<TARGET_PROPERTY:tfm,TFM_BINARY_DIR>/api_ns/interface/include
-#   )
-# endif()
+add_subdirectory(src/App)
+add_subdirectory(src/SHTC6)
+add_subdirectory(src/MAX17048)
+add_subdirectory(src/ADS1115)
+add_subdirectory(src/ADXL345)
+# add_subdirectory(libs)
+# add_subdirectory(drivers)
+
+
+# set(DTC_EXTRA_BINDINGS_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/dts/bindings)

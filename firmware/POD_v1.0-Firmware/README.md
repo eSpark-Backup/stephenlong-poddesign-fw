@@ -32,31 +32,21 @@ Open **nRF Connect for Desktop**, install the **Toolchain Manager**.
 
 ---
 
-##  2. Create a New Project (use BLE Mesh example)
-
-Use the terminal from Toolchain Manager (preloaded with environment variables):
-
-```bash
-cd ~/ncs/v3.0.2
-west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.0.2 my-app
-cd my-app
-west update
-west zephyr-export
-```
-
----
-
-##  3. Project Structure
+##  2. Project Structure
 
 Ensure your project folder looks like this:
 
 ```
 firmware/
-├── base_project/
+├── POD_v1.0-Firnware/
 │   ├── CMakeLists.txt
 │   ├── prj.conf
 │   └── src/
-│       └── main.c
+│   |    └── main.c
+│   └── boards/StephenLong/POD_v1/
+│       ├── POD_v1.dts
+│       ├── POD_v1_defconfig
+│       └── ...
 ```
 
 #### Sample `CMakeLists.txt`:
@@ -64,8 +54,10 @@ firmware/
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(base_project)
-target_sources(app PRIVATE src/main.c)
+project(POD_v1.0)
+
+FILE(GLOB app_sources src/*.c)
+target_sources(app PRIVATE ${app_sources})
 ```
 
 #### Sample `prj.conf`:
@@ -81,17 +73,17 @@ CONFIG_LOG=y
 
 ##  4. Build with Default nRF52840 Overlay
 
-No custom `overlay-*.dts` file is needed if you're using the default board configuration for `nrf52840dk_nrf52840`.
+No custom `overlay-*.dts` file is needed if you're using the provided board configuration for `nrf52840` in `POD_v1.dts`.
 
-From the `base_project` root:
+From the `POD_v1.0-Firnware` root:
 
 ```bash
-west build -b nrf52840dk_nrf52840 app
+west build -b POD_v1_nrf52840 app
 ```
 
 This will:
 - Use the `proj.conf` for configuration
-- Use the default board DTS and overlay file from the SDK
+- Use the provided board DTS and overlay file from the project folder
 
 ### 🧪 Flash the Firmware
 
@@ -107,7 +99,7 @@ west flash
 
 - You can view Kconfig options in `prj.conf` using:  
   `menuconfig` (e.g. `west build -t menuconfig`)
-- If you need overlays later, place them in `app/boards/` as `nrf52840dk_nrf52840.overlay`
+- If you need to modify overlays later, you can find them in `app/boards/`
 
 ---
 
@@ -124,4 +116,4 @@ west flash
 
 ---
 
-✅ **Done!** You now have a working build setup using SDK v3.0.2 and the default nRF52840 board files.
+✅ **Done!** You now have a working build setup using SDK v3.0.2 and the provided POD_v1 board files.

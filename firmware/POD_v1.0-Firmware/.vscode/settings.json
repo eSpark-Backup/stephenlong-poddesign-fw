@@ -1,0 +1,23 @@
+{
+    "files.associations": {
+        "devicetree.h": "c",
+        "settings.h": "c",
+        "device.h": "c",
+        "max17048.h": "c",
+        "app.h": "c",
+        "gpio.h": "c",
+        "fuel_gauge.h": "c",
+        "sensor.h": "c",
+        "init.h": "c",
+        "byteorder.h": "c",
+        "rtio.h": "c",
+        "app_memdomain.h": "c",
+        "log.h": "c",
+        "kernel.h": "c",
+        "i2c.h": "c",
+        "ads1115.h": "c",
+        "defines.h": "c",
+        "adc.h": "c",
+        "adxl345.h": "c"
+    }
+}
