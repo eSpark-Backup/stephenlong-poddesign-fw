@@ -22,4 +22,3 @@ add_subdirectory(src/ADXL345)
 
 
 # set(DTC_EXTRA_BINDINGS_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/dts/bindings)
-

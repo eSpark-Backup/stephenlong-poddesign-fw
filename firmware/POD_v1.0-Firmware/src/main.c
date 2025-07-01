@@ -12,10 +12,12 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/hwinfo.h>
+
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/fuel_gauge.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/i2c.h>
+
 #include <zephyr/sys/byteorder.h>
 
 #include <zephyr/bluetooth/bluetooth.h>
@@ -415,6 +417,7 @@ void print_array(const uint8_t *arr, size_t len) {
 int main(void)
 {
 	// static struct k_work button_work;
+
 	int err = -1;
 
 	k_sleep(K_MSEC(5000));
@@ -429,6 +432,7 @@ int main(void)
 		dev_uuid[0] = 0xdd;
 		dev_uuid[1] = 0xdd;
 	}
+
 	printk("Device id is: ");
 	print_array(dev_uuid, 16);
 
