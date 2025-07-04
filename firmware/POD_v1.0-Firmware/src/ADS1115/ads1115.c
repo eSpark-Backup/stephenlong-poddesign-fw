@@ -72,7 +72,7 @@ float get_dc_current(void)
 {
     float mVolts = (resultsRaw[DC_CURRENT_CHANNEL] * ADS1115_LEAST_COUNT);
     mVolts /= 1000;
-    mVolts -= (HALLCURRENT8120A_QUIESCENT_VOLTAGE + 0.0042);
+    mVolts -= (HALLCURRENT8120A_QUIESCENT_VOLTAGE + 0.0042f);
     float dc_mAmps = mVolts/0.01f;//map_value(mVolts, CURRENT_RANGE_MIN, 3.3, CURRENT_RANGE_MIN, CURRENT_RANGE_MAX);
 
     return dc_mAmps;

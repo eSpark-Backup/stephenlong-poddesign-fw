@@ -32,7 +32,7 @@ void adxl345_i2c_write(uint8_t reg_addr, const uint8_t *data, size_t data_len)
 void adxl345_i2c_read(uint8_t reg_addr, const uint8_t *data, size_t data_len)
 {
     const struct i2c_dt_spec *cfg = _adxl345->config;
-    int ret = i2c_write_read_dt(cfg, &reg_addr, sizeof(reg_addr), data, data_len);
+    int ret = i2c_write_read_dt(cfg, &reg_addr, sizeof(reg_addr), (void*)data, data_len);
     if (ret < 0) {
         LOG_ERR("Failed to read register: 0x%x  with error: %d", reg_addr, ret);
         return;
@@ -73,7 +73,7 @@ void adxl345_trigger_handler(const struct device *dev, struct gpio_callback *cb,
 
 void verify_settings(void)
 {
-    uint8_t int_en, int_map, int_src, data_format, fifo_ctl;
+    uint8_t int_en, int_map, int_src, data_format, fifo_ctl = 0;
     adxl345_i2c_read(ADXL345_INT_ENABLE_REG, &int_en, 1);
     adxl345_i2c_read(ADXL345_INT_MAP_REG, &int_map, 1);
     adxl345_i2c_read(ADXL345_INT_SOURCE_REG, &int_src, 1);
@@ -109,7 +109,7 @@ void configure_adxl345_alert_pin(void)
     adxl345_i2c_write(ADXL345_DATA_FORMAT_REG, &reg_val, sizeof(reg_val));
 
     // set ADXL345 INT1 mode to Free Fall and Data ready, all other interrupts are mapped to INT2
-    reg_val = ~INTERRUPTS_MASK;
+    reg_val = ~(uint8_t)INTERRUPTS_MASK;
     adxl345_i2c_write(ADXL345_INT_MAP_REG, &reg_val, sizeof(reg_val));
     reg_val = INTERRUPTS_MASK;
     adxl345_i2c_write(ADXL345_INT_ENABLE_REG, &reg_val, sizeof(reg_val));       // Enable interrupts

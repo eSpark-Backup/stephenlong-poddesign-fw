@@ -7,7 +7,7 @@
 
 // #define MAX17048_NODE DT_NODELABEL(max17048)
 
-extern const struct device *_max17048;;
+extern const struct device *_max17048;
 extern const struct device *_max17048_alert_gpio_dev;
 extern struct gpio_callback _max17048_alert_cb_data;
 
@@ -19,7 +19,7 @@ extern struct gpio_callback _max17048_alert_cb_data;
 #define ALERT_PIN           FUEL_GAUGE_GPIO
 #define ALERT_PORT          FUEL_GAUGE_GPIO_PORT
 
-#define VALRT_1LSB_THRESH               20.0               // 1LSB = 20mV
+#define VALRT_1LSB_THRESH               20.0f               // 1LSB = 20mV
 #define MAX17048_MIN_VOLT_THRESH        FUEL_GUAGE_MIN_THRESH
 #define MAX17048_MAX_VOLT_THRESH        FUEL_GUAGE_MAX_THRESH
 
