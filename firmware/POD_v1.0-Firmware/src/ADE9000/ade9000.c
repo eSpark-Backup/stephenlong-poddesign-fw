@@ -152,7 +152,7 @@ static void configure_ade9000_cs_pin(void)
 
 
 // _____________________________________________________________________________
-void ADE9000_init(int fNet)
+int8_t ADE9000_init(int fNet)
 {
     // _spi = new SPIClass(spi_bus);
     _burst_en = false;
@@ -182,6 +182,14 @@ void ADE9000_init(int fNet)
 
     k_sleep(K_MSEC(10));
 
+    // uint32_t chip_id = ADE9000__read_32(ADDR_ID);
+    // if(!(chip_id & ADE9000_ADE9000_ID))
+    // // if(chip_id != ADE9000_CHIP_ID)
+    // {
+    //     LOG_ERR("ADE id not match. chip_id: 0x%X", chip_id);
+    //     return -1;
+    // }
+
     ADE9000__write_16(ADDR_PGA_GAIN,ADE9000_PGA_GAIN);
     ADE9000__write_32(ADDR_CONFIG0,ADE9000_CONFIG0); 
     ADE9000__write_16(ADDR_CONFIG1,ADE9000_CONFIG1); 
@@ -205,7 +213,7 @@ void ADE9000_init(int fNet)
     // if (_logFunc) _logFunc("Set Run On");
     ADE9000__write_16(ADDR_RUN,ADE9000_RUN_ON);		//DSP ON
 
-    return;
+    return 0;
 }
 
 
@@ -594,19 +602,19 @@ void ADE9000__write_32_Check(uint16_t addr, uint32_t data){
 
 // _____________________________________________________________________________
 void ADE9000__burst_read_en(bool enable){
-    uint16_t buffer = ADE9000__read_16(CONFIG1);
+    uint16_t buffer = ADE9000__read_16(ADDR_CONFIG1);
     if(enable){
         _burst_en = true;
-        ADE9000__write_16(CONFIG1, buffer | (1 << CONFIG1_BURST_EN) );
+        ADE9000__write_16(ADDR_CONFIG1, buffer | (1 << CONFIG1_BURST_EN) );
     } else {
-        ADE9000__write_16(CONFIG1, buffer & ~(1 << CONFIG1_BURST_EN) );
+        ADE9000__write_16(ADDR_CONFIG1, buffer & ~(1 << CONFIG1_BURST_EN) );
         _burst_en = false;
     }
 }
 
 
 // _____________________________________________________________________________
-void ADE9000__burst_read(uint16_t addr, uint32_t *data, uint16_t size){
+void ADE9000__burst_read(uint16_t addr, uint32_t *data, uint16_t size) {
     // wegen Performancegründen ist es so kompliziert
     uint8_t rx_array[ 2 + (size*4) ];
     uint8_t tx_array[ 2 + (size*4) ];// = { 0 };
@@ -1000,7 +1008,51 @@ void init_ade9000(const struct device* ade9000_dev)
 
     configure_ade9000_cs_pin();
 
-    ADE9000_init(50);
+    if(ADE9000_init(50) < 0)
+    {
+        LOG_ERR("ADE9000 initialization error.");
+        return;
+    }
+    // ADE9000_startSampling(8000);         // need to tweak this function
+
+    float data[7] = {0.0};
+
+    float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
+
+    while(1)
+    {
+        // ADE9000_readMeasurement(data);
+
+        CurrentADC adc;
+        ADE9000_readRawMeasurement(&adc);
+        ADE9000_convertRawMeasurement(&adc, data);
+
+        struct VoltageRMSRegs voltRMS;
+        struct ActivePowerRegs activePOW;
+        ADE9000_readVoltageRMSRegs(&voltRMS);
+        ADE9000_convertVoltageRMSRegs(&voltRMS, vRMS);
+        ADE9000_readActivePowerRegs(&activePOW);
+        ADE9000_convertActivePowerRegs(&activePOW, activPOW);
+        
+        ADE9000_readLinePeriod(period);
+        ADE9000_readPhaseAngle(phase);
+
+        static int64_t last_log = 0;
+        int64_t now = k_uptime_get();
+
+        if(now - last_log >= 500)
+        {
+            last_log = now;
+            LOG_INF("ADE Data\n\t\t\t\t==========================");
+            LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", data[0], data[2], data[4]);
+            LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", data[1], data[3], data[5], data[6]);
+
+            LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", vRMS[0], period[0], phase[0], vRMS[1], period[0], phase[0], vRMS[2], period[0], phase[0]);
+            LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", activPOW[0], activPOW[1], activPOW[2]);
+        }
+
+        k_sleep(K_MSEC(10));
+    }
 
     LOG_DBG("ADE9000 power ic initialized");
 }

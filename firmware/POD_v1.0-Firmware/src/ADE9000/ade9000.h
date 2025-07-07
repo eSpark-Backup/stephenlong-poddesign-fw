@@ -19,18 +19,19 @@
 extern const struct device *_ade9000;
 extern const struct device *_ade9000_cs_gpio_dev;
 
-#define CS_PIN           POWER_METER_IC_CS
-#define CS_PORT          POWER_METER_IC_GPIO_PORT
+#define CS_PIN                      POWER_METER_IC_CS
+#define CS_PORT                     POWER_METER_IC_GPIO_PORT
 
-// Struct of an ADC reading
-typedef struct{
-  int32_t adc[7];// = { 0 };
-} CurrentADC;
 
 
 // /****************************************************************************************************************
 //  Structures and Global Variables
 // ****************************************************************************************************************/
+
+// Struct of an ADC reading
+typedef struct{
+  int32_t adc[7];// = { 0 };
+} CurrentADC;
 
 struct ActivePowerRegs
 {
@@ -162,7 +163,7 @@ typedef union {
    Definitions
   ****************************************************************************************************************/
   /*Configuration registers*/
-  #define ADE9000_PGA_GAIN 0x15ff    	    /*PGA@0x0000. Gain of all channels=1*/
+  #define ADE9000_PGA_GAIN 0x00//0x15ff    	    /*PGA@0x0000. Gain of all channels=1*/
   #define ADE9000_CONFIG0 0x00000000		/*Integrator disabled*/
   #define ADE9000_CONFIG1	0x0002			/*CF3/ZX pin outputs Zero crossing */
   #define ADE9000_CONFIG2	0x0C00			/*Default High pass corner frequency of 1.25Hz*/
@@ -172,7 +173,7 @@ typedef union {
   #define ADE9000_ACCMODE_60 0x0100			/*60Hz operation, 3P4W Wye configuration, signed accumulation*/
                       /*Clear bit 8 i.e. ACCMODE=0x00xx for 50Hz operation*/
                       /*ACCMODE=0x0x9x for 3Wire delta when phase B is used as reference*/	
-  #define ADE9000_TEMP_CFG 0x000C			/*Temperature sensor enabled*/
+  #define ADE9000_TEMP_CFG 0x000F//0x000C			/*Temperature sensor enabled*/
   #define ADE9000_ZX_LP_SEL 0x001E		/*Line period and zero crossing obtained from combined signals VA,VB and VC*/	
   #define ADE9000_MASK0 0x00000001		/*Enable EGYRDY interrupt*/				
   #define ADE9000_MASK1 0x00000000		/*MASK1 interrupts disabled*/
@@ -220,7 +221,7 @@ typedef union {
 
 //   public:
     // Constructor with reset dready or cf4 pin and spi bus (VSPI or HSPI)
-    void ADE9000_init(int fNet);  
+    int8_t ADE9000_init(int fNet);  
 
 
     void ADE9000_calcConstants();
@@ -300,7 +301,7 @@ typedef union {
     void ADE9000_convertFundCurrentRMSRegs(struct FundCurrentRMSRegs *data, float *values);
     void ADE9000_readFundCurrentRMS(float *values);
 
-    void updateEnergy();
+    // void updateEnergy();
     uint32_t ADE9000_readRegister(uint16_t addr, size_t size);
     void ADE9000_writeRegister(uint16_t addr, uint32_t data, size_t size);
 
