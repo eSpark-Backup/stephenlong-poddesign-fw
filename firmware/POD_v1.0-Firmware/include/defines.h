@@ -6,6 +6,7 @@
 #define ADXL345_POD_LOG_LEVEL       4
 #define ADS1115_POD_LOG_LEVEL       3
 #define SHTC6_POD_LOG_LEVEL         4
+#define ADE9000_LOG_LEVEL           4
 #define APP_LOG_LEVEL               4
 
 
@@ -27,6 +28,12 @@
 #define FLASH_IC_QSPI1              21
 #define FLASH_IC_QSPI2              22
 #define FLASH_IC_QSPI3              23
+
+#define POWER_METER_IC_GPIO_PORT    GPIO_PORT_0
+#define POWER_METER_IC_CS           4
+#define POWER_METER_IC_SCK          5
+#define POWER_METER_IC_MOSI         6
+#define POWER_METER_IC_MISO         7
 
 #define POWER_STATUS_GPIO_PORT      GPIO_PORT_0
 #define POWER_STATUS_GPIO           8

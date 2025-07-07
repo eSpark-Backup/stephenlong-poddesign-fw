@@ -44,7 +44,7 @@ void max17048_i2c_write(uint8_t reg_addr, const uint8_t *data, size_t data_len)
 void max17048_i2c_read(uint8_t reg_addr, const uint8_t *data, size_t data_len)
 {
     const struct i2c_dt_spec *cfg = _max17048->config;
-    int ret = i2c_write_read_dt(cfg, &reg_addr, sizeof(reg_addr), data, data_len);
+    int ret = i2c_write_read_dt(cfg, &reg_addr, sizeof(reg_addr), (void*)data, data_len);
     if (ret < 0) {
         LOG_ERR("Failed to read register: 0x%x  with error: %d", reg_addr, ret);
         return;
@@ -159,8 +159,8 @@ void configure_max17048_alert_pin(void)
 
 int max17048_set_valrt(float min, float max)
 {
-    uint8_t high_byte = (uint8_t)((max * 1000) / VALRT_1LSB_THRESH);
-    uint8_t low_byte  = (uint8_t)((min * 1000) / VALRT_1LSB_THRESH);
+    uint8_t high_byte = (uint8_t)((max * 1000.0f) / VALRT_1LSB_THRESH);
+    uint8_t low_byte  = (uint8_t)((min * 1000.0f) / VALRT_1LSB_THRESH);
 
     uint16_t valrt = ((uint16_t)high_byte << 8) | low_byte;
     uint8_t buf[2];
