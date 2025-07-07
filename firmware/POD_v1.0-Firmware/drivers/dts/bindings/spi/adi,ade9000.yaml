@@ -1,0 +1,17 @@
+description: ADE9000 Power Meter
+
+compatible: "adi,ade9000"
+
+include: ["spi-device.yaml"]
+
+properties:
+  reg:
+    required: true
+
+  spi-max-frequency:
+    required: true
+
+  cs-gpios:
+    type: phandle-array
+    required: true
+    description: Chip select GPIO pin

@@ -5,17 +5,12 @@ description: |
   Maxim MAX17048 Fuel Gauge with ModelGauge. See more info at:
   https://www.maximintegrated.com/en/products/power/battery-management/MAX17048.html
 
-compatible: "maxim,max17048_pod"
+compatible: "maxim,max17048_POD"
 
 include: ["maxim,max17048.yaml"]
 
 properties:
   irq-gpios:
-    type: phandle-array
-    required: false
-    description: GPIO line used for interrupt from the fuel gauge chip
-  
-  alrt-gpios:
     type: phandle-array
     required: false
     description: GPIO line used for interrupt from the fuel gauge chip

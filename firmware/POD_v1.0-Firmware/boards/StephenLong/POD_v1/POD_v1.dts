@@ -68,18 +68,72 @@
         status = "okay";
 	};
 
-	max17048_pod@36 {
-		compatible = "maxim,max17048_pod";
+	max17048:max17048@36 {
+		compatible = "maxim,max17048";
 		reg = <0x36>;
-		alrt-gpios = <&gpio1 8 (GPIO_ACTIVE_LOW)>;  // ALERT pin
-		// irq-gpios = <&gpio1 8 (GPIO_ACTIVE_LOW)>;  // ALERT pin
-		// // // interrupts-extended = <&gpio1 8 GPIO_ACTIVE_LOW>;
-		// interrupt-parent = <&gpiote>;  // or <&gpio0> or <&nvic> depending on source
-        // interrupts = <8 1>; // pin 8, edge trigger or mode (see below)
-		label = "MAX17048_POD";
+		label = "MAX17048";
         status = "okay";
-		zephyr,pm-device-runtime-auto;
 	};
+
+	ads1115:ads1115@49 {
+		compatible = "ti,ads1115";
+		reg = <0x49>;
+		#io-channel-cells = <0x1>;
+		label = "ADS1115";
+		status = "okay";
+		// channel@0 {
+		// 	reg = <0>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+		// channel@1 {
+		// 	reg = <1>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+		// channel@2 {
+		// 	reg = <2>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+		// channel@3 {
+		// 	reg = <3>;
+		// 	zephyr,gain = "ADC_GAIN_1";
+		// 	zephyr,reference = "ADC_REF_INTERNAL";
+		// 	zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		// 	zephyr,resolution = < 15 >;
+		// };
+	};
+
+	adxl345: adxl345@53 {
+		compatible = "adi,adxl345";
+		reg = <0x53>;
+		// int2-gpios = <&gpio1 9 0>;
+		// supply-gpios = <&gpio1 11 0>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-names = "default";
+	ade9000: ade9000@0 {
+        compatible = "adi,ade9000";
+        reg = <0>;
+        spi-max-frequency = <DT_FREQ_M(20)>;
+		cs-gpios = <&gpio0 4 GPIO_ACTIVE_LOW>;
+		status = "okay";
+    };
+};
+
+&adc {
+	status = "okay";
 };
 
 &gpio0 {
@@ -91,4 +145,3 @@
 	label = "GPIO_1";
 	status = "okay";
 };
-

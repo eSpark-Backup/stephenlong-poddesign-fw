@@ -1,9 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-
-config MAX17048_POD
-    bool "MAX17048_POD Li-Po fuel gauge"
-    default y
-    depends on DT_HAS_MAXIM_MAX17048_POD_ENABLED
-    select I2C
-    help
-      Enable support for the MAX17048_POD fuel gauge device with ALRT interrupt.
