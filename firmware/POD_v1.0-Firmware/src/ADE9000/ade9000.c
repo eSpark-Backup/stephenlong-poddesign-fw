@@ -1015,44 +1015,44 @@ void init_ade9000(const struct device* ade9000_dev)
     }
     // ADE9000_startSampling(8000);         // need to tweak this function
 
-    float data[7] = {0.0};
 
-    float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
+    // float data[7] = {0.0};
+    // float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
 
-    while(1)
-    {
-        // ADE9000_readMeasurement(data);
+    // while(1)
+    // {
+    //     // ADE9000_readMeasurement(data);
 
-        CurrentADC adc;
-        ADE9000_readRawMeasurement(&adc);
-        ADE9000_convertRawMeasurement(&adc, data);
+    //     CurrentADC adc;
+    //     ADE9000_readRawMeasurement(&adc);
+    //     ADE9000_convertRawMeasurement(&adc, data);
 
-        struct VoltageRMSRegs voltRMS;
-        struct ActivePowerRegs activePOW;
-        ADE9000_readVoltageRMSRegs(&voltRMS);
-        ADE9000_convertVoltageRMSRegs(&voltRMS, vRMS);
-        ADE9000_readActivePowerRegs(&activePOW);
-        ADE9000_convertActivePowerRegs(&activePOW, activPOW);
+    //     struct VoltageRMSRegs voltRMS;
+    //     struct ActivePowerRegs activePOW;
+    //     ADE9000_readVoltageRMSRegs(&voltRMS);
+    //     ADE9000_convertVoltageRMSRegs(&voltRMS, vRMS);
+    //     ADE9000_readActivePowerRegs(&activePOW);
+    //     ADE9000_convertActivePowerRegs(&activePOW, activPOW);
         
-        ADE9000_readLinePeriod(period);
-        ADE9000_readPhaseAngle(phase);
+    //     ADE9000_readLinePeriod(period);
+    //     ADE9000_readPhaseAngle(phase);
 
-        static int64_t last_log = 0;
-        int64_t now = k_uptime_get();
+    //     static int64_t last_log = 0;
+    //     int64_t now = k_uptime_get();
 
-        if(now - last_log >= 500)
-        {
-            last_log = now;
-            LOG_INF("ADE Data\n\t\t\t\t==========================");
-            LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", data[0], data[2], data[4]);
-            LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", data[1], data[3], data[5], data[6]);
+    //     if(now - last_log >= 500)
+    //     {
+    //         last_log = now;
+    //         LOG_INF("ADE Data\n\t\t\t\t==========================");
+    //         LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", data[0], data[2], data[4]);
+    //         LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", data[1], data[3], data[5], data[6]);
 
-            LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", vRMS[0], period[0], phase[0], vRMS[1], period[0], phase[0], vRMS[2], period[0], phase[0]);
-            LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", activPOW[0], activPOW[1], activPOW[2]);
-        }
+    //         LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", vRMS[0], period[0], phase[0], vRMS[1], period[0], phase[0], vRMS[2], period[0], phase[0]);
+    //         LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", activPOW[0], activPOW[1], activPOW[2]);
+    //     }
 
-        k_sleep(K_MSEC(10));
-    }
+    //     k_sleep(K_MSEC(10));
+    // }
 
     LOG_DBG("ADE9000 power ic initialized");
 }

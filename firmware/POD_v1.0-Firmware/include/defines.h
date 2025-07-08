@@ -7,10 +7,11 @@
 #define ADS1115_POD_LOG_LEVEL       3
 #define SHTC6_POD_LOG_LEVEL         4
 #define ADE9000_LOG_LEVEL           4
+#define AFE3010_LOG_LEVEL           4
 #define APP_LOG_LEVEL               4
 
 
-#define FUEL_GAUGE_IC_ADDR 0x36
+#define FUEL_GAUGE_IC_ADDR          0x36
 #define FUEL_GUAGE_MIN_THRESH       3.4
 #define FUEL_GUAGE_MAX_THRESH       4.4
 

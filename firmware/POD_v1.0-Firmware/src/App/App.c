@@ -27,22 +27,16 @@ const struct device *powerMeter = DEVICE_DT_GET(DT_NODELABEL(spi1));
 
 void app_init(void)
 {
+	LOG_DBG("Initializing sensor drivers");
 	
-	// if ((powerMeter == NULL)) {
-	// 	LOG_ERR("SPI device not found. _ade9000: %p", powerMeter);
-	// 	return;
-	// }
-	
-	// if (!device_is_ready(powerMeter)) {
-	// 	LOG_ERR("ADE9000 device not ready");
-    //     return;
-    // }
-	
+	init_afe3010();
 	init_ade9000(powerMeter);
 	init_adxl345(imu);
 	init_ads1115(acdcMeter);
 	init_shtc6(tempSensor);
 	init_max17048(fuelGuage);
+
+	LOG_DBG("Initialization complete");
 
 	while (1) {
 
@@ -71,6 +65,36 @@ void app_init(void)
 		// LOG_INF("Time to full %d minutes", vals[1].runtime_to_full);
 		LOG_INF("Charge %d%%", soc);//vals[2].relative_state_of_charge);
 		LOG_INF("Voltage %d.%02d V", volts, millivolts);
+
+		float data[7] = {0.0};
+    	float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
+		CurrentADC adc;
+        ADE9000_readRawMeasurement(&adc);
+        ADE9000_convertRawMeasurement(&adc, data);
+
+        struct VoltageRMSRegs voltRMS;
+        struct ActivePowerRegs activePOW;
+        ADE9000_readVoltageRMSRegs(&voltRMS);
+        ADE9000_convertVoltageRMSRegs(&voltRMS, vRMS);
+        ADE9000_readActivePowerRegs(&activePOW);
+        ADE9000_convertActivePowerRegs(&activePOW, activPOW);
+        
+        ADE9000_readLinePeriod(period);
+        ADE9000_readPhaseAngle(phase);
+
+        static int64_t last_log = 0;
+        int64_t now = k_uptime_get();
+
+        if(now - last_log >= 500)
+        {
+            last_log = now;
+            LOG_INF("ADE Data");
+            LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", data[0], data[2], data[4]);
+            LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", data[1], data[3], data[5], data[6]);
+
+            LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", vRMS[0], period[0], phase[0], vRMS[1], period[0], phase[0], vRMS[2], period[0], phase[0]);
+            LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", activPOW[0], activPOW[1], activPOW[2]);
+        }
 
         k_sleep(K_SECONDS(1));
     }

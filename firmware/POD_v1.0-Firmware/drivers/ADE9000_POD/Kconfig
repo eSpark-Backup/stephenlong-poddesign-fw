@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig ADE9000
+	bool "ADE9000 Power Meter Driver"
+	help
+	  This option enables the ADE9000 custom driver class.
+
+if ADE9000
+
+config ADE9000_INIT_PRIORITY
+	int "ADE9000 device drivers init priority"
+	default KERNEL_INIT_PRIORITY_DEVICE
+	help
+	  ADE9000 device drivers init priority.
+
+module = ADE9000
+module-str = ade9000
+source "subsys/logging/Kconfig.template.log_config"
+
+config ADE9000_POD
+    bool "ADE9000 Power Meter Driver"
+    depends on SPI
+    help
+      Enable support for the ADE9000 power meter chip over SPI.
+
+# config BLINK_GPIO_LED
+# 	bool "GPIO-controlled LED blink driver"
+# 	default y
+# 	depends on DT_HAS_BLINK_GPIO_LED_ENABLED
+# 	select GPIO
+# 	help
+# 	  Enable this option to use the GPIO-controlled LED blink driver. This
+# 	  demonstrates how to implement a driver for a custom driver class.
+
+endif # ADE9000
