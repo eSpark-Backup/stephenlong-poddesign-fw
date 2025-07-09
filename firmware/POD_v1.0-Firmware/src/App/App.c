@@ -29,12 +29,12 @@ void app_init(void)
 {
 	LOG_DBG("Initializing sensor drivers");
 	
-	init_afe3010();
 	init_ade9000(powerMeter);
 	init_adxl345(imu);
 	init_ads1115(acdcMeter);
 	init_shtc6(tempSensor);
 	init_max17048(fuelGuage);
+	init_afe3010();
 
 	LOG_DBG("Initialization complete");
 
@@ -88,10 +88,9 @@ void app_init(void)
         if(now - last_log >= 500)
         {
             last_log = now;
-            LOG_INF("ADE Data");
+            LOG_INF("Power Data");
             LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", data[0], data[2], data[4]);
             LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", data[1], data[3], data[5], data[6]);
-
             LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", vRMS[0], period[0], phase[0], vRMS[1], period[0], phase[0], vRMS[2], period[0], phase[0]);
             LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", activPOW[0], activPOW[1], activPOW[2]);
         }
