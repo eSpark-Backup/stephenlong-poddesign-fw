@@ -8,6 +8,7 @@
 #define SHTC6_POD_LOG_LEVEL         4
 #define ADE9000_LOG_LEVEL           4
 #define AFE3010_LOG_LEVEL           4
+#define W25Q128_POD_LOG_LEVEL       4
 #define APP_LOG_LEVEL               4
 
 

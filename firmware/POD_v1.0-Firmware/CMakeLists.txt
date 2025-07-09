@@ -26,6 +26,7 @@ add_subdirectory(src/ADS1115)
 add_subdirectory(src/ADXL345)
 add_subdirectory(src/ADE9000)
 add_subdirectory(src/AFE3010)
+add_subdirectory(src/W25Q128)
 # add_subdirectory(libs)
 
 # add_subdirectory(drivers)

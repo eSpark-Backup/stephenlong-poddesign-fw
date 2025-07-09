@@ -5,13 +5,12 @@
 #include "ads1115.h"
 #include "adxl345.h"
 #include "ade9000.h"
+#include "w25q128.h"
 
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/fuel_gauge.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/i2c.h>
-
-// #include "drivers/sensor/ADE_9000_POD/ade9000.h"
 
 LOG_MODULE_REGISTER(APP, APP_LOG_LEVEL);
 
@@ -24,11 +23,15 @@ const struct device *powerMeter = DEVICE_DT_GET(DT_NODELABEL(spi1));
 // const struct device *powerMeter = DEVICE_DT_GET(DT_NODELABEL(ade9000));
 // const struct device *powerMeter = DEVICE_DT_GET_ANY(adi_ade9000);
 
+#define FLASH_DEVICE_LABEL "W25Q128"
 
 void app_init(void)
 {
 	LOG_DBG("Initializing sensor drivers");
-	
+
+	const struct device *flash_dev = device_get_binding(FLASH_DEVICE_LABEL);
+    init_w25q128(flash_dev);
+
 	init_ade9000(powerMeter);
 	init_adxl345(imu);
 	init_ads1115(acdcMeter);

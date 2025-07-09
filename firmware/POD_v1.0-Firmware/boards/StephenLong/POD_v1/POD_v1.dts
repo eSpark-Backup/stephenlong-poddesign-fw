@@ -143,6 +143,7 @@
     // };
 };
 
+
 &adc {
 	status = "okay";
 };
@@ -156,3 +157,49 @@
 	label = "GPIO_1";
 	status = "okay";
 };
+
+&qspi {
+	status = "okay";
+	pinctrl-0 = <&qspi_default>;
+	pinctrl-names = "default";
+
+	w25q128@0 {
+		compatible = "nordic,qspi-nor";
+        reg = <0>;
+        label = "W25Q128";
+        writeoc = "pp4io";
+        readoc = "read4io";
+		jedec-id = [ef 40 18]; /* Winbond W25Q128JV */
+        sck-frequency = <DT_FREQ_M(32)>; /* Up to 32MHz, use safe value for stability */
+
+        /* Required memory configuration */
+        size = <0x800000>;   /* 8MB (64Mbit) */
+        // address-cells = <1>;
+        // erase-block-size = <4096>; /* 4KB sector */
+        page-size = <256>;
+
+        /* Power-down options (optional) */
+        has-dpd;
+        t-enter-dpd = <10000>;
+        t-exit-dpd = <35000>;
+	};
+};
+
+// &qspi {
+//     status = "okay";
+//     pinctrl-0 = <&qspi_default>;
+//     pinctrl-names = "default";
+
+//     qspi_flash: qspi@0 {
+//         compatible = "jedec,spi-nor";
+//         reg = <0>;
+//         label = "W25Q128";
+//         jedec-id = [ef 40 18]; /* Winbond W25Q128JV */
+//         size = <0x800000>;     /* 8 MB = 64 Mbit = 0x800000 bytes */
+//         has-dpd;
+//         t-enter-dpd = <10000>;
+//         t-exit-dpd = <35000>;
+//         // qspi-max-frequency = <8000000>; /* 8 MHz, or up to 32 MHz */
+// 		spi-max-frequency = <DT_FREQ_M(32)>;
+//     };
+// };
