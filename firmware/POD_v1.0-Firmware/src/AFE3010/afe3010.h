@@ -34,6 +34,7 @@ enum PHASES_e
 
 void shared_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
+void configure_pin(uint32_t pinType, uint8_t pin, bool isIntPin, uint32_t *intType);
 void analyze_alarm_pattern(enum PHASES_e phase);
 
 void init_afe3010(void);

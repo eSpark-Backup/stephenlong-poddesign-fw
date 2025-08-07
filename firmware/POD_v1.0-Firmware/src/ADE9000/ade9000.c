@@ -25,6 +25,7 @@
 // #include "RTOS-ESP32-helper.h"
 
 #include <stdint.h>
+#include <math.h>
 
 #include "ade9000.h"
 
@@ -226,22 +227,22 @@ void ADE9000_calcConstants() {
     double _adcToI, _adcToV, _adcToIRMS, _adcToVRMS, _adcToPower;
 
     if (_samplingrate == 8000) {
-        _adcToI = (float)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_8K_FULL_SCALE_CODES)*1000.0; // 1000 for mA
-        _adcToV = (float)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_8K_FULL_SCALE_CODES); 
+        _adcToI = (double)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_8K_FULL_SCALE_CODES*1000.0); // 1000 for mA
+        _adcToV = (double)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_8K_FULL_SCALE_CODES); 
     } else {
-        _adcToI = (float)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_32K_FULL_SCALE_CODES)*1000.0; // 1000 for mA
-        _adcToV = (float)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_32K_FULL_SCALE_CODES); 
+        _adcToI = (double)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_32K_FULL_SCALE_CODES*1000.0); // 1000 for mA
+        _adcToV = (double)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_32K_FULL_SCALE_CODES); 
     }
-    _adcToIRMS = (float)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_RMS_FULL_SCALE_CODES*(double)sqrt(2.0))*1000.0; // 1000 for mA
-    _adcToVRMS = (float)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_RMS_FULL_SCALE_CODES*(double)sqrt(2.0)); 
-    _adcToPower = (float)((double)FULL_SCALE_VOLTAGE_V*FULL_SCALE_VOLTAGE_I/((double)ADE9000_WATT_FULL_SCALE_CODES*2.0)); 
+    _adcToIRMS = (double)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_RMS_FULL_SCALE_CODES*(double)sqrt(2.0))*1000.0; // 1000 for mA
+    _adcToVRMS = (double)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_RMS_FULL_SCALE_CODES*(double)sqrt(2.0)); 
+    _adcToPower = (double)((double)FULL_SCALE_VOLTAGE_V*(double)FULL_SCALE_VOLTAGE_I/((double)ADE9000_WATT_FULL_SCALE_CODES*2.0)); 
 
 
-    _adcToI = (double)_adcToI/(double)gainI;
-    _adcToV = (double)_adcToV/(double)gainV;
-    _adcToIRMS = (double)_adcToIRMS/(double)gainI/2.0; // TODO: where does /2.0 come from?
-    _adcToVRMS = (double)_adcToVRMS/(double)gainV/2.0;
-    _adcToPower = (double)_adcToPower/(double)(gainI*gainV);
+    _adcToI = (double)(_adcToI/gainI);
+    _adcToV = (double)(_adcToV/gainV);
+    _adcToIRMS = (double)(_adcToIRMS/gainI/2.0); // TODO: where does /2.0 come from?
+    _adcToVRMS = (double)(_adcToVRMS/gainV/2.0);
+    _adcToPower = (double)(_adcToPower/(gainI*gainV));
 
 
     _adcToI_L1 = _adcToI*(double)_calibration[1];
@@ -530,7 +531,7 @@ uint16_t ADE9000__read_16_CRC(uint16_t addr) {
     if (!_burst_en) {
         if ( rx_crc != CRCCCITT(rx_data, 2, 0xffff, 0)) {
             // if (_logFunc) 
-                LOG_DBG("CRC ERROR! - RX: 0x%04x calc: 0x%04x", CRCCCITT(rx_data, 2, 0xffff, 0));
+                LOG_DBG("CRC ERROR! - RX: 0x%04x calc: 0x%04x", rx_crc, CRCCCITT(rx_data, 2, 0xffff, 0));
         }
     }
     return (_rx_array[2] << 8) | _rx_array[3];
@@ -563,7 +564,7 @@ uint32_t ADE9000__read_32_CRC(uint16_t addr) {
     if (!_burst_en) {
         if ( rx_crc != CRCCCITT(rx_data, 2, 0xffff, 0)) {
         // if (_logFunc) 
-            LOG_DBG("CRC ERROR! - RX: 0x%04x calc: 0x%04x", CRCCCITT(rx_data, 2, 0xffff, 0));
+            LOG_DBG("CRC ERROR! - RX: 0x%04x calc: 0x%04x", rx_crc, CRCCCITT(rx_data, 2, 0xffff, 0));
         }
     }
     uint32_t data = _rx_array[2] << 24;
@@ -618,6 +619,8 @@ void ADE9000__burst_read(uint16_t addr, uint32_t *data, uint16_t size) {
     // wegen Performancegründen ist es so kompliziert
     uint8_t rx_array[ 2 + (size*4) ];
     uint8_t tx_array[ 2 + (size*4) ];// = { 0 };
+    memset(rx_array, 0, sizeof(rx_array));
+    memset(tx_array, 0, sizeof(tx_array));
 
     if (!_burst_en) {
         ADE9000__burst_read_en(true);
@@ -912,66 +915,66 @@ void ADE9000_readFundCurrentRMS(float *values) {
 void ADE9000_readActiveEnergy(double *values) {
     uint32_t high = (ADE9000__read_32(ADDR_AWATTHR_HI));
     // _write_32(ADDR_AWATTHR_HI,0); // Reset is done via config 
-    values[0] = (double)high*_adcToPower_L1/3600.0;
+    values[0] = (double)(high*_adcToPower_L1/3600.0f);
     high = (ADE9000__read_32(ADDR_BWATTHR_HI));
-    values[1] = (double)high*_adcToPower_L2/3600.0;
+    values[1] = (double)(high*_adcToPower_L2/3600.0f);
     high = (ADE9000__read_32(ADDR_CWATTHR_HI));
-    values[2] = (double)high*_adcToPower_L3/3600.0;
+    values[2] = (double)(high*_adcToPower_L3/3600.0f);
 }
 
 // _____________________________________________________________________________
 void ADE9000_readReactiveEnergy(double *values) {
     uint32_t high = (ADE9000__read_32(ADDR_AVARHR_HI));
     // _write_32(ADDR_AVARHR_HI,0); // Reset is done via config 
-    values[0] = (double)high*_adcToPower_L1/3600.0;
+    values[0] = (double)(high*_adcToPower_L1/3600.0f);
     high = (ADE9000__read_32(ADDR_BVARHR_HI));
-    values[1] = (double)high*_adcToPower_L2/3600.0;
+    values[1] = (double)(high*_adcToPower_L2/3600.0f);
     high = (ADE9000__read_32(ADDR_CVARHR_HI));
-    values[2] = (double)high*_adcToPower_L3/3600.0;
+    values[2] = (double)(high*_adcToPower_L3/3600.0f);
 }
 
 // _____________________________________________________________________________
 void ADE9000_readApparentEnergy(double *values) {
     uint32_t high = (ADE9000__read_32(ADDR_AVAHR_HI));
     // _write_32(ADDR_AVAHR_HI,0); // Reset is done via config 
-    values[0] = (double)high*_adcToPower_L1/3600.0;
+    values[0] = (double)(high*_adcToPower_L1/3600.0f);
     high = (ADE9000__read_32(ADDR_BVAHR_HI));
-    values[1] = (double)high*_adcToPower_L2/3600.0;
+    values[1] = (double)(high*_adcToPower_L2/3600.0f);
     high = (ADE9000__read_32(ADDR_CVAHR_HI));
-    values[2] = (double)high*_adcToPower_L3/3600.0;
+    values[2] = (double)(high*_adcToPower_L3/3600.0f);
 }
 
 // _____________________________________________________________________________
 void ADE9000_readFundActiveEnergy(double *values) {
     uint32_t high = (ADE9000__read_32(ADDR_AFWATTHR_HI));
     // _write_32(ADDR_AFWATTHR_HI,0); // Reset is done via config 
-    values[0] = (double)high*_adcToPower_L1/3600.0;
+    values[0] = (double)(high*_adcToPower_L1/3600.0f);
     high = (ADE9000__read_32(ADDR_BFWATTHR_HI));
-    values[1] = (double)high*_adcToPower_L2/3600.0;
+    values[1] = (double)(high*_adcToPower_L2/3600.0f);
     high = (ADE9000__read_32(ADDR_CFWATTHR_HI));
-    values[2] = (double)high*_adcToPower_L3/3600.0;
+    values[2] = (double)(high*_adcToPower_L3/3600.0f);
 }
 
 // _____________________________________________________________________________
 void ADE9000_readFundReactiveEnergy(double *values) {
     uint32_t high = (ADE9000__read_32(ADDR_AFVARHR_HI));
     // _write_32(ADDR_AFVARHR_HI,0); // Reset is done via config 
-    values[0] = (double)high*_adcToPower_L1/3600.0;
+    values[0] = (double)(high*_adcToPower_L1/3600.0f);
     high = (ADE9000__read_32(ADDR_BFVARHR_HI));
-    values[1] = (double)high*_adcToPower_L2/3600.0;
+    values[1] = (double)(high*_adcToPower_L2/3600.0f);
     high = (ADE9000__read_32(ADDR_CFVARHR_HI));
-    values[2] = (double)high*_adcToPower_L3/3600.0;
+    values[2] = (double)(high*_adcToPower_L3/3600.0f);
 }
 
 // _____________________________________________________________________________
 void ADE9000_readFundApparentEnergy(double *values) {
     uint32_t high = (ADE9000__read_32(ADDR_AFVAHR_HI));
     // _write_32(ADDR_AFVAHR_HI,0); // Reset is done via config 
-    values[0] = (double)high*_adcToPower_L1/3600.0;
+    values[0] = (double)(high*_adcToPower_L1/3600.0f);
     high = (ADE9000__read_32(ADDR_BFVAHR_HI));
-    values[1] = (double)high*_adcToPower_L2/3600.0;
+    values[1] = (double)(high*_adcToPower_L2/3600.0f);
     high = (ADE9000__read_32(ADDR_CFVAHR_HI));
-    values[2] = (double)high*_adcToPower_L3/3600.0;
+    values[2] = (double)(high*_adcToPower_L3/3600.0f);
 }
 
 // _____________________________________________________________________________

@@ -1,6 +1,6 @@
 identifier: POD_v1/nrf52840
-name: Stephen Long POD project - board v1.0
-vendor: StephenLong
+name: POD project - board v1.0
+vendor: zyntellitech
 type: mcu
 arch: arm
 ram: 256

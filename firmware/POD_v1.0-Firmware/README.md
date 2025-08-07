@@ -43,7 +43,7 @@ firmware/
 │   ├── prj.conf
 │   └── src/
 │   |    └── main.c
-│   └── boards/StephenLong/POD_v1/
+│   └── boards/zyntellitech/POD_v1/
 │       ├── POD_v1.dts
 │       ├── POD_v1_defconfig
 │       └── ...

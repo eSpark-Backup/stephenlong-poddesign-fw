@@ -3,8 +3,8 @@
 #include "POD_v1-pinctrl.dtsi"
 
 / {
-	model = "Stephen Long POD project - board v1.0";
-	compatible = "StephenLong,POD-v1";
+	model = "POD project - board v1.0";
+	compatible = "zyntellitech,POD-v1";
 
 	chosen {
 		zephyr,sram = &sram0;

@@ -28,6 +28,13 @@ typedef enum {
     PHASE_ANALYZING
 } phase_state_t;
 
+enum STATES_e
+{
+    LOW,
+    HIGH,
+    STATE_TIMESTAMP,
+};
+
 static phase_state_t phase_state[AFE3010_NO_OF_PHASES] = {
     PHASE_IDLE, PHASE_IDLE, PHASE_IDLE
 };
@@ -91,32 +98,39 @@ void start_alarm_sampling(enum PHASES_e phase, uint8_t pin)
 
 void shared_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
-    int val;
     uint32_t now = k_uptime_get();
+    uint32_t relevant_pins = pins & ( BIT(AFE3010_SCR_SIG_VA) | BIT(AFE3010_SCR_SIG_VB) | BIT(AFE3010_SCR_SIG_VC) |
+                                      BIT(AFE3010_ALARM_VA)   | BIT(AFE3010_ALARM_VB)   | BIT(AFE3010_ALARM_VC)   );
+    if (__builtin_popcount(relevant_pins) > 1) {
+        LOG_ERR("Multiple pins triggered callback. pinCount:%d", relevant_pins);
+        return;
+    }
+
+    int val = gpio_pin_get(dev, pins);
 
     if (pins & BIT(AFE3010_SCR_SIG_VA)) {
-        int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VA);
-        if ((now - scr_time_stamp[PHASE_A][2]) >= DEBOUNCE_MS) {
+        // int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VA);
+        // if ((now - scr_time_stamp[PHASE_A][STATE_TIMESTAMP]) >= DEBOUNCE_MS) {
             scr_time_stamp[PHASE_A][val] = now;
-            scr_time_stamp[PHASE_A][2] = now;
+            scr_time_stamp[PHASE_A][STATE_TIMESTAMP] = now;
             LOG_DBG("Interrupt from AFE3010_SCR_SIG_VA PIN - edge: %s", (val ? "RISING" : "FALLING"));
-        }
+        // }
     }
     if (pins & BIT(AFE3010_SCR_SIG_VB)) {
-        int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VB);
-        if ((now - scr_time_stamp[PHASE_B][2]) >= DEBOUNCE_MS) {
+        // int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VB);
+        // if ((now - scr_time_stamp[PHASE_B][STATE_TIMESTAMP]) >= DEBOUNCE_MS) {
             scr_time_stamp[PHASE_B][val] = now;
-            scr_time_stamp[PHASE_B][2] = now;
+            scr_time_stamp[PHASE_B][STATE_TIMESTAMP] = now;
             LOG_DBG("Interrupt from AFE3010_SCR_SIG_VB PIN - edge: %s", (val ? "RISING" : "FALLING"));
-        }
+        // }
     }
     if (pins & BIT(AFE3010_SCR_SIG_VC)) {
-        int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VC);
-        if ((now - scr_time_stamp[PHASE_C][2]) >= DEBOUNCE_MS) {
+        // int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VC);
+        // if ((now - scr_time_stamp[PHASE_C][STATE_TIMESTAMP]) >= DEBOUNCE_MS) {
             scr_time_stamp[PHASE_C][val] = now;
-            scr_time_stamp[PHASE_C][2] = now;
+            scr_time_stamp[PHASE_C][STATE_TIMESTAMP] = now;
             LOG_DBG("Interrupt from AFE3010_SCR_SIG_VC PIN - edge: %s", (val ? "RISING" : "FALLING"));
-        }
+        // }
     }
 
     // ALARM edge detection
@@ -175,7 +189,7 @@ void shared_callback(const struct device *dev, struct gpio_callback *cb, uint32_
 //     bool scr_active = false;
 //     uint32_t now = k_uptime_get();
 //     int current_val = gpio_pin_get(_afe3010_port_gpio_dev, (phase + GROUND_FAULT_SCR_SIG_VA));
-//     if (current_val == 0 || (now - scr_time_stamp[phase][0]) < SCR_ACTIVE_WINDOW_MS) {
+//     if (current_val == 0 || (now - scr_time_stamp[phase][LOW]) < SCR_ACTIVE_WINDOW_MS) {
 //         scr_active = true;
 //     }
 
@@ -273,7 +287,7 @@ void analyze_alarm_pattern(enum PHASES_e phase)
     bool scr_active = false;
     int scr_val = gpio_pin_get(_afe3010_port_gpio_dev, (phase + GROUND_FAULT_SCR_SIG_VA));
 
-    if (scr_val == 0 || (now - scr_time_stamp[phase][0]) < SCR_ACTIVE_WINDOW_MS) {
+    if (scr_val == 0 || (now - scr_time_stamp[phase][LOW]) < SCR_ACTIVE_WINDOW_MS) {
         scr_active = true;
     }
 
@@ -284,7 +298,7 @@ void analyze_alarm_pattern(enum PHASES_e phase)
         avg_burst_len = total / burst_count;
     }
 
-    int approx_khz = (transitions / 2); // transitions = high/low edges
+    // int approx_khz = (transitions / 2); // transitions = high/low edges
     LOG_INF("Phase %s: bursts = %d, high_count = %d, scr = %s", 
             phase_names[phase], burst_count, high_count, scr_active ? "ACTIVE" : "INACTIVE");
 
@@ -397,9 +411,10 @@ void init_afe3010(void)
     //     // k_sleep(K_MSEC(10));
     //     // gpio_pin_set(_afe3010_port_gpio_dev, AFE3010_PTT_VA, 1);
 
-    //     LOG_INF("scr_time_stamp[PHASE_A] -> [FALLING]: %d    [RISING]: %d", scr_time_stamp[PHASE_A][0], scr_time_stamp[PHASE_A][1]);
-    //     LOG_INF("scr_time_stamp[PHASE_B] -> [FALLING]: %d    [RISING]: %d", scr_time_stamp[PHASE_B][0], scr_time_stamp[PHASE_B][1]);
-    //     LOG_INF("scr_time_stamp[PHASE_C] -> [FALLING]: %d    [RISING]: %d", scr_time_stamp[PHASE_C][0], scr_time_stamp[PHASE_C][1]);
+    //        LOG_INF("Phase A:[Falling:%d Rising:%d] Phase B:[Falling:%d Rising:%d] Phase C:[Falling:%d Rising:%d]",
+    //                    scr_time_stamp[PHASE_A][LOW], scr_time_stamp[PHASE_A][HIGH],
+    //                    scr_time_stamp[PHASE_B][LOW], scr_time_stamp[PHASE_B][HIGH],
+    //                    scr_time_stamp[PHASE_C][LOW], scr_time_stamp[PHASE_C][HIGH]);
         
     //     k_sleep(K_MSEC(1000));
     // }

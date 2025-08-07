@@ -73,7 +73,11 @@ void adxl345_trigger_handler(const struct device *dev, struct gpio_callback *cb,
 
 void verify_settings(void)
 {
-    uint8_t int_en, int_map, int_src, data_format, fifo_ctl = 0;
+    uint8_t int_en = 0;
+    uint8_t int_map = 0;
+    uint8_t int_src = 0;
+    uint8_t data_format = 0;
+    uint8_t fifo_ctl = 0;
     adxl345_i2c_read(ADXL345_INT_ENABLE_REG, &int_en, 1);
     adxl345_i2c_read(ADXL345_INT_MAP_REG, &int_map, 1);
     adxl345_i2c_read(ADXL345_INT_SOURCE_REG, &int_src, 1);
