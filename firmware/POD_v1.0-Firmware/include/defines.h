@@ -2,13 +2,13 @@
 
 #include <zephyr/logging/log.h>
 
-#define MAX17048_POD_LOG_LEVEL      4
-#define ADXL345_POD_LOG_LEVEL       4
-#define ADS1115_POD_LOG_LEVEL       3
-#define SHTC6_POD_LOG_LEVEL         4
-#define ADE9000_LOG_LEVEL           4
-#define AFE3010_LOG_LEVEL           4
-#define APP_LOG_LEVEL               4
+#define MAX17048_POD_LOG_LEVEL      LOG_LEVEL_DBG
+#define ADXL345_POD_LOG_LEVEL       LOG_LEVEL_DBG
+#define ADS1115_POD_LOG_LEVEL       LOG_LEVEL_INF
+#define SHTC6_POD_LOG_LEVEL         LOG_LEVEL_DBG
+#define ADE9000_LOG_LEVEL           LOG_LEVEL_DBG
+#define AFE3010_LOG_LEVEL           LOG_LEVEL_DBG
+#define APP_LOG_LEVEL               LOG_LEVEL_DBG
 
 
 #define FUEL_GAUGE_IC_ADDR          0x36

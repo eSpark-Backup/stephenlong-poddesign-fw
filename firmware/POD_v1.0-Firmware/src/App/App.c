@@ -57,15 +57,6 @@ void app_init(void)
 		int volts = voltage / 1000000;
 		int millivolts = (voltage % 1000000) / 10000;  // Get 2 decimal digits
 
-		LOG_INF("Temperature: %d.%02d °C", temp_int, temp_frac);
-		LOG_INF("Humidity: %d.%02d %%", hum_int, hum_frac);
-		LOG_INF("DC Voltage: %2.3f V", (double)get_dc_voltage());
-		LOG_INF("DC Current: %2.3f A", (double)get_dc_current());
-
-		// LOG_INF("Time to empty %d minutes", vals[0].runtime_to_empty);
-		// LOG_INF("Time to full %d minutes", vals[1].runtime_to_full);
-		LOG_INF("Charge %d%%", soc);//vals[2].relative_state_of_charge);
-		LOG_INF("Voltage %d.%02d V", volts, millivolts);
 
 		float data[7] = {0.0};
     	float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
@@ -86,17 +77,28 @@ void app_init(void)
         static int64_t last_log = 0;
         int64_t now = k_uptime_get();
 
-        if(now - last_log >= 500)
+        if(now - last_log >= 1000)
         {
             last_log = now;
+			LOG_INF("Temperature: %d.%02d °C", temp_int, temp_frac);
+			LOG_INF("Humidity: %d.%02d %%", hum_int, hum_frac);
+			LOG_INF("DC Voltage: %2.3f V", (double)get_dc_voltage());
+			LOG_INF("DC Current: %2.3f A", (double)get_dc_current());
+
+			// LOG_INF("Time to empty %d minutes", vals[0].runtime_to_empty);
+			// LOG_INF("Time to full %d minutes", vals[1].runtime_to_full);
+			LOG_INF("Charge %d%%", soc);//vals[2].relative_state_of_charge);
+			LOG_INF("Voltage %d.%02d V", volts, millivolts);
+
             LOG_INF("Power Data");
             LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", (double)data[0], (double)data[2], (double)data[4]);
             LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)data[1], (double)data[3], (double)data[5], (double)data[6]);
             LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[0], (double)period[0], (double)phase[0], (double)vRMS[1], (double)period[0], (double)phase[0], (double)vRMS[2], (double)period[0], (double)phase[0]);
             LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", (double)activPOW[0], (double)activPOW[1], (double)activPOW[2]);
         }
+		analyze_ground_faults((uint32_t)now);
 
-        k_sleep(K_SECONDS(1));
+        k_sleep(K_MSEC(1));
     }
 
     return;

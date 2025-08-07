@@ -18,6 +18,10 @@
         "ads1115.h": "c",
         "defines.h": "c",
         "adc.h": "c",
-        "adxl345.h": "c"
+        "adxl345.h": "c",
+        "afe3010.h": "c"
+    },
+    "nrf-connect.debugging.bindings": {
+        "${workspaceFolder}/build/POD_v1.0-Firmware": "Launch POD_v1.0-Firmware"
     }
 }

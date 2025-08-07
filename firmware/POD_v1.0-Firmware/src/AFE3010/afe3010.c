@@ -7,14 +7,17 @@ LOG_MODULE_REGISTER(AFE3010_POD, AFE3010_LOG_LEVEL);
 #define SCR_PIN_MASK            BIT(AFE3010_SCR_SIG_VA) | BIT(AFE3010_SCR_SIG_VB) | BIT(AFE3010_SCR_SIG_VC)
 #define ALARM_PIN_MASK          BIT(AFE3010_ALARM_VA) | BIT(AFE3010_ALARM_VB) | BIT(AFE3010_ALARM_VC)
 
+#define BURST_LEN_TO_MS(x)      ((x*AFE3010_ALARM_SAMPLE_TIME)/1000.0f)
+#define MAX_MEMBERS_TO_CHECK    10
+
 const struct device *_afe3010_port_gpio_dev = DEVICE_DT_GET(DT_NODELABEL(AFE3010_PORT));
 struct gpio_callback _afe3010_cb_data;
 static struct k_timer _alarm_pin_sample_timer;
 
-static uint32_t scr_time_stamp[AFE3010_NO_OF_PHASES][3] = {0};          // three timestamps for each phase; falling edge timestamp, rising edge timestamp, debounce timestamp
-static uint8_t alarm_samples[AFE3010_NO_OF_PHASES][BUFFER_SIZE];
-static uint16_t sample_index[AFE3010_NO_OF_PHASES] = {0};
-static bool timer_running = false;
+volatile static uint32_t scr_time_stamp[AFE3010_NO_OF_PHASES][3] = {0};          // three timestamps for each phase; falling edge timestamp, rising edge timestamp, debounce timestamp
+volatile static uint8_t alarm_samples[AFE3010_NO_OF_PHASES][BUFFER_SIZE];
+volatile static uint16_t sample_index[AFE3010_NO_OF_PHASES] = {0};
+volatile static bool timer_running = false;
 
 static const char* phase_names[] = {
     [PHASE_A] = "PHASE_A",
@@ -39,17 +42,27 @@ static phase_state_t phase_state[AFE3010_NO_OF_PHASES] = {
     PHASE_IDLE, PHASE_IDLE, PHASE_IDLE
 };
 
-// need to modify this function to account for individual phase sampling, right now it stops after buffers fills up for one of the phase
-// DONE
 void alarm_sample_handler(struct k_timer *dummy)
 {
     bool all_done = true;
+    static uint32_t phase_timestamp[AFE3010_NO_OF_PHASES] = {0};
+    static uint32_t samples_skipped[AFE3010_NO_OF_PHASES] = {0};
+    uint32_t now = k_uptime_get();
 
-    for (int phase = 0; phase < AFE3010_NO_OF_PHASES; phase++) {
+    for (int phase = PHASE_A; phase < AFE3010_NO_OF_PHASES; phase++) {
         if (phase_state[phase] != PHASE_SAMPLING)
+        {
+            samples_skipped[phase]++;
+            if((now - phase_timestamp[phase]) > 500)
+            {
+                LOG_WRN("Skipping sample on %s, samples_skipped:%d", phase_names[phase], samples_skipped[phase]);
+                phase_timestamp[phase] = now;
+                samples_skipped[phase] = 0;
+            }
             continue;
+        }
 
-        all_done = false;  // At least one phase still sampling
+        all_done = false;  // At least one phase is still sampling
 
         uint8_t pin = AFE3010_ALARM_VA + phase;
         int val = gpio_pin_get(_afe3010_port_gpio_dev, pin);
@@ -62,13 +75,13 @@ void alarm_sample_handler(struct k_timer *dummy)
         // Finish sampling if buffer full
         if (sample_index[phase] >= BUFFER_SIZE) {
             LOG_DBG("Sampling done for phase %s", phase_names[phase]);
-            analyze_alarm_pattern(phase);
+            // analyze_alarm_pattern(phase);            // do not analyze buffer in ISR context 
 
             // Reconfigure to interrupt mode
             uint32_t intType = GPIO_INT_EDGE_RISING;
             configure_pin(GPIO_INPUT, pin, true, &intType);
 
-            phase_state[phase] = PHASE_IDLE;
+            phase_state[phase] = PHASE_ANALYZING;
         }
     }
 
@@ -89,11 +102,11 @@ void start_alarm_sampling(enum PHASES_e phase, uint8_t pin)
     configure_pin(GPIO_INPUT, pin, false, NULL);
 
     if (!timer_running) {
-        k_timer_start(&_alarm_pin_sample_timer, K_NO_WAIT, K_USEC(AFE3010_ALARM_SAMPLE_TIME));
+        k_timer_start(&_alarm_pin_sample_timer, K_USEC(AFE3010_ALARM_SAMPLE_TIME), K_USEC(AFE3010_ALARM_SAMPLE_TIME));
         timer_running = true;
     }
 
-    LOG_DBG("Sampling started for phase %s", phase_names[phase]);
+    LOG_DBG("Sampling started for %s", phase_names[phase]);
 }
 
 void shared_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
@@ -101,36 +114,28 @@ void shared_callback(const struct device *dev, struct gpio_callback *cb, uint32_
     uint32_t now = k_uptime_get();
     uint32_t relevant_pins = pins & ( BIT(AFE3010_SCR_SIG_VA) | BIT(AFE3010_SCR_SIG_VB) | BIT(AFE3010_SCR_SIG_VC) |
                                       BIT(AFE3010_ALARM_VA)   | BIT(AFE3010_ALARM_VB)   | BIT(AFE3010_ALARM_VC)   );
-    if (__builtin_popcount(relevant_pins) > 1) {
+    if (__builtin_popcount(relevant_pins) > 1) {         // check if callback was triggerred with multiple pins as argument; is it even applicable?
         LOG_ERR("Multiple pins triggered callback. pinCount:%d", relevant_pins);
         return;
     }
 
     int val = gpio_pin_get(dev, pins);
 
+    // taking scr_pin timestamps for later use
     if (pins & BIT(AFE3010_SCR_SIG_VA)) {
-        // int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VA);
-        // if ((now - scr_time_stamp[PHASE_A][STATE_TIMESTAMP]) >= DEBOUNCE_MS) {
-            scr_time_stamp[PHASE_A][val] = now;
-            scr_time_stamp[PHASE_A][STATE_TIMESTAMP] = now;
-            LOG_DBG("Interrupt from AFE3010_SCR_SIG_VA PIN - edge: %s", (val ? "RISING" : "FALLING"));
-        // }
+        scr_time_stamp[PHASE_A][val] = now;
+        scr_time_stamp[PHASE_A][STATE_TIMESTAMP] = now;
+        LOG_DBG("Interrupt from AFE3010_SCR_SIG_VA PIN - edge: %s", (val ? "RISING" : "FALLING"));
     }
     if (pins & BIT(AFE3010_SCR_SIG_VB)) {
-        // int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VB);
-        // if ((now - scr_time_stamp[PHASE_B][STATE_TIMESTAMP]) >= DEBOUNCE_MS) {
-            scr_time_stamp[PHASE_B][val] = now;
-            scr_time_stamp[PHASE_B][STATE_TIMESTAMP] = now;
-            LOG_DBG("Interrupt from AFE3010_SCR_SIG_VB PIN - edge: %s", (val ? "RISING" : "FALLING"));
-        // }
-    }
+        scr_time_stamp[PHASE_B][val] = now;
+        scr_time_stamp[PHASE_B][STATE_TIMESTAMP] = now;
+        LOG_DBG("Interrupt from AFE3010_SCR_SIG_VB PIN - edge: %s", (val ? "RISING" : "FALLING"));
+}
     if (pins & BIT(AFE3010_SCR_SIG_VC)) {
-        // int val = gpio_pin_get(dev, AFE3010_SCR_SIG_VC);
-        // if ((now - scr_time_stamp[PHASE_C][STATE_TIMESTAMP]) >= DEBOUNCE_MS) {
-            scr_time_stamp[PHASE_C][val] = now;
-            scr_time_stamp[PHASE_C][STATE_TIMESTAMP] = now;
-            LOG_DBG("Interrupt from AFE3010_SCR_SIG_VC PIN - edge: %s", (val ? "RISING" : "FALLING"));
-        // }
+        scr_time_stamp[PHASE_C][val] = now;
+        scr_time_stamp[PHASE_C][STATE_TIMESTAMP] = now;
+        LOG_DBG("Interrupt from AFE3010_SCR_SIG_VC PIN - edge: %s", (val ? "RISING" : "FALLING"));
     }
 
     // ALARM edge detection
@@ -148,107 +153,6 @@ void shared_callback(const struct device *dev, struct gpio_callback *cb, uint32_
     }
 }
 
-// void analyze_alarm_pattern(enum PHASES_e phase)
-// {
-//     const uint8_t* buf = alarm_samples[phase];
-
-//     int high_transitions = 0;
-//     int low_transitions = 0;
-//     // int cycles = 0;
-//     int last_val = buf[0];
-//     int burst_start = -1;
-//     int burst_lengths[10] = {0}; // support up to 10 bursts
-//     int burst_count = 0;
-
-//     for (int i = 1; i < BUFFER_SIZE; ++i) {
-//         int val = buf[i];
-
-//         if (val != last_val) {
-//             if (val == 1) high_transitions++;
-//             else          low_transitions++;
-
-//             if (val == 1 && burst_start == -1) {
-//                 burst_start = i;
-//             }
-
-//             if (val == 0 && burst_start != -1) {
-//                 int len = i - burst_start;
-//                 if (len > 300) {
-//                     if (burst_count < 10) {
-//                         burst_lengths[burst_count++] = len;
-//                     }
-//                 }
-//                 burst_start = -1;
-//             }
-
-//             last_val = val;
-//         }
-//     }
-
-//     // Evaluate SCR state
-//     bool scr_active = false;
-//     uint32_t now = k_uptime_get();
-//     int current_val = gpio_pin_get(_afe3010_port_gpio_dev, (phase + GROUND_FAULT_SCR_SIG_VA));
-//     if (current_val == 0 || (now - scr_time_stamp[phase][LOW]) < SCR_ACTIVE_WINDOW_MS) {
-//         scr_active = true;
-//     }
-
-//     int high_count = 0;
-//     for (int i = 0; i < BUFFER_SIZE; i++) {
-//         if (buf[i]) high_count++;
-//     }
-
-//     LOG_INF("Phase %s: bursts = %d, high_count = %d, scr = %s",
-//         phase_names[phase], burst_count, high_count, scr_active ? "ACTIVE" : "INACTIVE");
-
-//     if (scr_active) {
-//         if (high_count > 5000) {
-//             LOG_INF("Detected: Ground fault on phase %s", phase_names[phase]);
-//             return;
-//         } else {
-//             LOG_WRN("SCR active but weak signal on phase %s", phase_names[phase]);
-//             return;
-//         }
-//     }
-
-//     // --- Classify based on burst pattern ---
-//     if (burst_count == 1 && burst_lengths[0] >= 600 && burst_lengths[0] <= 900) {           // 3KHz signal for 250ms, 3000/4 = 750 high transitions
-//         LOG_INF("Detected: POR success (250ms burst) on phase %s", phase_names[phase]);
-//         return;
-//     }
-
-//     if (burst_count >= 2) {
-//         int avg_len = 0;
-//         for (int i = 0; i < burst_count; i++) {
-//             avg_len += burst_lengths[i];
-//         }
-//         avg_len /= burst_count;
-
-//         if (avg_len >= 2800 && avg_len <= 3200) {
-//             LOG_INF("Detected: PTT failure (1Hz blink) on phase %s", phase_names[phase]);
-//             return;
-//         }
-
-//         if (avg_len >= 5800 && avg_len <= 6400) {
-//             LOG_INF("Detected: POR failure (0.5Hz blink) on phase %s", phase_names[phase]);
-//             return;
-//         }
-
-//         if (avg_len >= 3400 && avg_len <= 3800) {
-//             LOG_INF("Detected: CT disconnected (0.4Hz blink) on phase %s", phase_names[phase]);
-//             return;
-//         }
-//     }
-
-//     if (high_count < 100) {
-//         LOG_INF("Detected: Normal operation (idle) on phase %s", phase_names[phase]);
-//         return;
-//     }
-
-//     LOG_WRN("Unclassified signal on phase %s: bursts = %d, avg_len ≈ %d, high_count = %d",
-//             phase_names[phase], burst_count,
-//             (burst_count > 0 ? burst_lengths[0] : -1), high_count);
-// }
 void analyze_alarm_pattern(enum PHASES_e phase)
 {
     uint32_t now = k_uptime_get();
@@ -259,27 +163,36 @@ void analyze_alarm_pattern(enum PHASES_e phase)
     int burst_lengths[32] = {0};
     int burst_count = 0;
 
+    // log the buffer for manual checking
+    // LOG_DBG("%s buffer contents: ", phase_names[phase]);
+    // LOG_HEXDUMP_DBG(&alarm_samples[phase][6777], BUFFER_SIZE/16, "");
+
+    
     for (int i = 0; i < BUFFER_SIZE; ++i) {
         int val = alarm_samples[phase][i];
         if (val) high_count++;
-
+        
         // Count transitions
         if (val != last_val) {
             transitions++;
             last_val = val;
         }
-
+        
         // Burst start
         if (val == 1 && burst_start == -1) {
             burst_start = i;
         }
-
+        
         // Burst end
-        if ((val == 0 || i == BUFFER_SIZE - 1) && burst_start != -1) {
+        bool is_signal_present = false;
+        uint8_t members_to_check = MIN(BUFFER_SIZE - i, MAX_MEMBERS_TO_CHECK);
+        for (uint8_t index = 0; index < members_to_check; index++)
+        {
+            is_signal_present |= alarm_samples[phase][i+index];
+        }
+        if (!is_signal_present && burst_start != -1) {
             int len = i - burst_start;
-            if (len > 10) {  // Accept shorter pulses for 3kHz
                 burst_lengths[burst_count++] = len;
-            }
             burst_start = -1;
         }
     }
@@ -287,59 +200,78 @@ void analyze_alarm_pattern(enum PHASES_e phase)
     bool scr_active = false;
     int scr_val = gpio_pin_get(_afe3010_port_gpio_dev, (phase + GROUND_FAULT_SCR_SIG_VA));
 
-    if (scr_val == 0 || (now - scr_time_stamp[phase][LOW]) < SCR_ACTIVE_WINDOW_MS) {
+    if ((scr_val == LOW) || (now - scr_time_stamp[phase][LOW]) < SCR_ACTIVE_WINDOW_MS) {
         scr_active = true;
     }
 
     int avg_burst_len = -1;
-    if (burst_count > 0) {
-        int total = 0;
-        for (int i = 0; i < burst_count; i++) total += burst_lengths[i];
-        avg_burst_len = total / burst_count;
+    char burst_str[768];
+    int offset = 0;
+    if (burst_count) {
+        int total = 0;                          // for average burst count calculation
+        offset += snprintf(burst_str + offset, sizeof(burst_str) - offset, "bursts = %d [lengths: ", burst_count);
+        for (int i = 0; i < burst_count; i++) {
+            offset += snprintf(burst_str + offset, sizeof(burst_str) - offset, "{%d: %d (%0.2f ms)} ", i+1, burst_lengths[i], (double)(BURST_LEN_TO_MS(burst_lengths[i])));
+            total += burst_lengths[i];          // for average burst count calculation
+        }
+        avg_burst_len = total / burst_count;    // for average burst count calculation
+        snprintf(burst_str + offset, sizeof(burst_str) - offset, "]");
+    } else {
+        snprintf(burst_str, sizeof(burst_str), "No bursts");
     }
 
-    // int approx_khz = (transitions / 2); // transitions = high/low edges
-    LOG_INF("Phase %s: bursts = %d, high_count = %d, scr = %s", 
-            phase_names[phase], burst_count, high_count, scr_active ? "ACTIVE" : "INACTIVE");
+    LOG_INF("%s: %s, high_count = %d, scr = %s", 
+            phase_names[phase], burst_str, high_count, scr_active ? "ACTIVE" : "INACTIVE");
 
     if (scr_active) {
-        if (high_count > 2000) {
-            LOG_DBG("Detected: Ground fault on phase %s", phase_names[phase]);
+        if (high_count > 4000) {
+            LOG_DBG("Detected: Ground fault on %s", phase_names[phase]);
             return;
         } else {
-            LOG_DBG("Detected: Possible noise during SCR active on phase %s", phase_names[phase]);
+            LOG_DBG("Detected: Possible noise during SCR active on %s", phase_names[phase]);
             return;
         }
     }
-
-    if (!scr_active) {
+    else {
         if (high_count < 100 && transitions < 200) {
-            LOG_DBG("Detected: Normal operation on phase %s", phase_names[phase]);
+            LOG_DBG("Detected: Normal operation on %s", phase_names[phase]);
             return;
         }
 
-        if (burst_count > 3 && avg_burst_len >= 500 && avg_burst_len <= 1500) {
-            LOG_DBG("Detected: Self-test failure (1Hz blink) on phase %s", phase_names[phase]);
+        if (burst_count > 1 && BURST_LEN_TO_MS(avg_burst_len) >= 500 && BURST_LEN_TO_MS(avg_burst_len) <= 1500) {
+            LOG_DBG("Detected: Self-test failure (1Hz blink) on %s", phase_names[phase]);
             return;
         }
 
         if (transitions >= 6000 && high_count >= 3000) {
-            LOG_DBG("Detected: CT Disconnected (1.2s ON/OFF 3kHz blink) on phase %s", phase_names[phase]);
+            LOG_DBG("Detected: CT Disconnected (1.2s ON/OFF 3kHz blink) on %s", phase_names[phase]);
             return;
         }
     }
 
-    LOG_WRN("Unclassified signal on phase %s: bursts = %d, avg_len ≈ %d, high_count = %d", 
-        phase_names[phase], burst_count, avg_burst_len, high_count);
+    LOG_WRN("Unclassified signal on %s: bursts = %d, avg_len ≈ %0.2f ms, high_count = %d", 
+        phase_names[phase], burst_count, (double)BURST_LEN_TO_MS(avg_burst_len), high_count);
 }
 
 
 void configure_pin(uint32_t pinType, uint8_t pin, bool isIntPin, uint32_t *intType)
 {
+    const char* int_str = "";
+
     int err = gpio_pin_configure(_afe3010_port_gpio_dev, pin, pinType);
     if(isIntPin)
     {
         err |= gpio_pin_interrupt_configure(_afe3010_port_gpio_dev, pin, *intType);
+
+        if (*intType == GPIO_INT_EDGE_BOTH) {
+            int_str = "(interrupt enabled RISING/FALLING)";
+        } else if (*intType == GPIO_INT_EDGE_RISING) {
+            int_str = "(interrupt enabled RISING)";
+        } else if (*intType == GPIO_INT_EDGE_FALLING) {
+            int_str = "(interrupt enabled FALLING)";
+        } else {
+            int_str = "(UNKNOWN interrupt setting)";
+        }
     }
     else
     {
@@ -350,13 +282,13 @@ void configure_pin(uint32_t pinType, uint8_t pin, bool isIntPin, uint32_t *intTy
     {
         LOG_ERR("Error while configuring GPIO %s.%d as %s %s",
                 _afe3010_port_gpio_dev->name, pin, ((pinType & GPIO_INPUT) ? "INPUT" : "OUTPUT"),
-                ((true == isIntPin) ? "(interrupt enabled)" : "") );
+                ((true == isIntPin) ? int_str : "") );
         return;
     }
     
     LOG_DBG("Configured %s.%d as %s %s",
             _afe3010_port_gpio_dev->name, pin, ((pinType & GPIO_INPUT) ? "INPUT" : "OUTPUT"),
-            ((true == isIntPin) ? "(interrupt enabled)" : "") );
+            ((true == isIntPin) ? int_str : "") );
 }
 
 void configure_ptt(void)
@@ -383,6 +315,23 @@ void configure_alarm(void)
     configure_pin(GPIO_INPUT, AFE3010_ALARM_VC, true, &intType);
 }
 
+void analyze_ground_faults(uint32_t now)
+{
+    static uint32_t timeStamp = 0;
+    if((now - timeStamp) > 1)
+    {
+        for(int phase = PHASE_A; phase < AFE3010_NO_OF_PHASES; phase++)
+        {
+            if (phase_state[phase] == PHASE_ANALYZING)
+            {
+                analyze_alarm_pattern(phase);
+                phase_state[phase] = PHASE_IDLE;
+            }
+        }
+        timeStamp = now;
+    }
+}
+
 void init_afe3010(void)
 {
     if (!_afe3010_port_gpio_dev) {
@@ -403,20 +352,29 @@ void init_afe3010(void)
     // Init and start k_timer
     k_timer_init(&_alarm_pin_sample_timer, alarm_sample_handler, NULL);
     // k_timer_start(&_alarm_pin_sample_timer, K_USEC(AFE3010_ALARM_SAMPLE_TIME), K_USEC(AFE3010_ALARM_SAMPLE_TIME));
-
+    
+    // uint32_t timeStampLog = 0;
     // while(1)
     // {
+    //     uint32_t now = k_uptime_get();
     //     // LOG_INF("Toggling PTT pin");
     //     // gpio_pin_set(_afe3010_port_gpio_dev, AFE3010_PTT_VA, 0);
     //     // k_sleep(K_MSEC(10));
     //     // gpio_pin_set(_afe3010_port_gpio_dev, AFE3010_PTT_VA, 1);
 
-    //        LOG_INF("Phase A:[Falling:%d Rising:%d] Phase B:[Falling:%d Rising:%d] Phase C:[Falling:%d Rising:%d]",
-    //                    scr_time_stamp[PHASE_A][LOW], scr_time_stamp[PHASE_A][HIGH],
-    //                    scr_time_stamp[PHASE_B][LOW], scr_time_stamp[PHASE_B][HIGH],
-    //                    scr_time_stamp[PHASE_C][LOW], scr_time_stamp[PHASE_C][HIGH]);
+
+    //     if((now - timeStampLog) > 1000)
+    //     {
+    //         LOG_INF("Phase A:[Falling:%d Rising:%d] Phase B:[Falling:%d Rising:%d] Phase C:[Falling:%d Rising:%d]",
+    //             scr_time_stamp[PHASE_A][LOW], scr_time_stamp[PHASE_A][HIGH],
+    //             scr_time_stamp[PHASE_B][LOW], scr_time_stamp[PHASE_B][HIGH],
+    //             scr_time_stamp[PHASE_C][LOW], scr_time_stamp[PHASE_C][HIGH]);
+    //         timeStampLog = now;
+    //     }
         
-    //     k_sleep(K_MSEC(1000));
+    //     analyze_ground_faults(now);
+        
+    //     k_sleep(K_MSEC(1));
     // }
 
     LOG_DBG("AFE3010 Ground Fault detection configured");

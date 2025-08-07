@@ -61,6 +61,7 @@ void adxl345_work_handler(struct k_work *work)
     if(ADXL345_INT_SRC_ACT_MSK & reg_data)
     {
         LOG_DBG("Activity detected.");
+        LOG_WRN("IMPACT DETECTED");
     }
 }
 

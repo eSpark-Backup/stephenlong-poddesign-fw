@@ -8,7 +8,7 @@ extern struct gpio_callback _afe3010_cb_data;
 #define BUFFER_SIZE                     12048//7230//6024//200      // buffer value set such that it is filled in 2secs
 #define AFE3010_ALARM_SAMPLE_TIME       166           // uS; 3KHz freq to be sampled, Nyquiste rate determines sampling freq to be twice the freq to be sampled
 #define AFE3010_NO_OF_PHASES            3
-#define SCR_ACTIVE_WINDOW_MS            10             // time window prior to which scr was triggerred
+#define SCR_ACTIVE_WINDOW_MS            2100          // time window prior to which scr was triggerred  (we are checking after 2secs of buffer collection?)
 #define DEBOUNCE_MS                     50            // debounce on scr pin  (do we even need it?)
 
 #define AFE3010_PORT        GROUND_FAULT_GPIO_PORT
@@ -32,9 +32,17 @@ enum PHASES_e
     PHASE_C,
 };
 
+enum PIN_STATE_e
+{
+    PULL_UP,
+    PULL_DOWN,
+    FLOAT,
+};
+
 void shared_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 
 void configure_pin(uint32_t pinType, uint8_t pin, bool isIntPin, uint32_t *intType);
 void analyze_alarm_pattern(enum PHASES_e phase);
 
+void analyze_ground_faults(uint32_t now);
 void init_afe3010(void);
