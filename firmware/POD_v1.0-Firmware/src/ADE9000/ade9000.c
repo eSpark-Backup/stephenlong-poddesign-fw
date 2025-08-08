@@ -8,21 +8,7 @@
  University of Freiburg, Institute of Informatik
  ****************************************************/
 
-// #include <SPI.h>
-// #include <driver/spi_common.h>
-// #include <soc/spi_struct.h>
-
-// // #include <esp32/rom/crc.h> // crc.h des ESP32 liefter falsche Ergebnisse
 #include "CRC-16-CCITT.h"  
-
-// #include "esp32-hal-spi.h"
-
-// #include "ADE9000.h"
-// #include "ADE9000_REGISTER.h"
-
-// #include "esp32-hal-spi.h"
-
-// #include "RTOS-ESP32-helper.h"
 
 #include <stdint.h>
 #include <math.h>
@@ -85,7 +71,6 @@ uint8_t gainI; // Current gain of all Channel A B C
     float _adcToPower_L1,_adcToPower_L2,_adcToPower_L3;
 
 // Class members
-    // SPIClass *_spi;
     bool _spi_inited = false;
     
     // const uint8_t _PM1_PIN;
@@ -99,7 +84,6 @@ uint8_t gainI; // Current gain of all Channel A B C
     bool _burst_en = false;
 
 
-    uint32_t _spi_speed;
     uint8_t _rx_array[9];
     uint8_t _burst_read_tx_array [31];
     uint8_t _burst_read_rx_array [31];
@@ -170,7 +154,6 @@ int8_t ADE9000_init(int fNet)
         _burst_read_rx_array[i] = 0;
     }
 
-    _spi_speed = SPI_SPEED;
     gainI = STANDARD_CURRENT_GAIN;
     gainV = STANDARD_VOLTAGE_GAIN;
 
@@ -183,13 +166,15 @@ int8_t ADE9000_init(int fNet)
 
     k_sleep(K_MSEC(10));
 
-    // uint32_t chip_id = ADE9000__read_32(ADDR_ID);
-    // if(!(chip_id & ADE9000_ADE9000_ID))
-    // // if(chip_id != ADE9000_CHIP_ID)
-    // {
-    //     LOG_ERR("ADE id not match. chip_id: 0x%X", chip_id);
-    //     return -1;
-    // }
+    uint32_t chip_id = ADE9000__read_32(ADDR_ID);
+    if(!(chip_id & ADE9000_ADE9000_ID))
+    // if(chip_id != ADE9000_CHIP_ID)
+    {
+        LOG_ERR("ADE id not match. chip_id: 0x%X", chip_id);
+        return -1;
+    }
+    LOG_DBG("Chip ID: 0x%08lX (%" PRIu32 ")", (unsigned long int)chip_id, chip_id);
+
 
     ADE9000__write_16(ADDR_PGA_GAIN,ADE9000_PGA_GAIN);
     ADE9000__write_32(ADDR_CONFIG0,ADE9000_CONFIG0); 
@@ -201,7 +186,7 @@ int8_t ADE9000_init(int fNet)
     } else {
         ADE9000__write_16(ADDR_ACCMODE,ADE9000_ACCMODE);
     }
-    ADE9000__write_16(ADDR_TEMP_CFG,ADE9000_TEMP_CFG); 
+    ADE9000__write_16(ADDR_TEMP_CFG,ADE9000_TEMP_CFG);
     ADE9000__write_16(ADDR_ZX_LP_SEL,ADE9000_ZX_LP_SEL); 
     ADE9000__write_32(ADDR_MASK0,ADE9000_MASK0); 
     ADE9000__write_32(ADDR_MASK1,ADE9000_MASK1); 
@@ -223,25 +208,36 @@ void ADE9000_setCalibration(float *values)
     for (int i = 0; i < 6; i++) _calibration[i] = values[i];
 }
 
+void ADE9000_get_PGA_gain(uint8_t *currentGain, uint8_t *voltageGain) {
+    uint16_t pgaGainRegister;
+
+    pgaGainRegister = ADE9000__read_16(ADDR_PGA_GAIN);
+    uint8_t temp = pgaGainRegister & 0x0003;
+    *currentGain = (temp == 0) ? 1.0 : (temp == 1.0) ? 2.0 : 4.0;
+    temp = (pgaGainRegister >> 8) & 0x0003;
+    *voltageGain = (temp == 0) ? 1.0 : (temp == 1.0) ? 2.0 : 4.0;
+}
+
 void ADE9000_calcConstants() {
     double _adcToI, _adcToV, _adcToIRMS, _adcToVRMS, _adcToPower;
 
     if (_samplingrate == 8000) {
-        _adcToI = (double)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_8K_FULL_SCALE_CODES*1000.0); // 1000 for mA
-        _adcToV = (double)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_8K_FULL_SCALE_CODES); 
+        _adcToI = 1.0 / (double)((double)CURRENT_TRANSFER_FUNCTION * (double)ADE9000_8K_FULL_SCALE_CODES * 1000.0); // 1000 for mA
+        _adcToV = 1.0 / (double)((double)VOLTAGE_TRANSFER_FUNCTION * (double)ADE9000_8K_FULL_SCALE_CODES); 
     } else {
-        _adcToI = (double)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_32K_FULL_SCALE_CODES*1000.0); // 1000 for mA
-        _adcToV = (double)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_32K_FULL_SCALE_CODES); 
+        _adcToI = 1.0 / (double)((double)CURRENT_TRANSFER_FUNCTION * (double)ADE9000_32K_FULL_SCALE_CODES * 1000.0); // 1000 for mA
+        _adcToV = 1.0 / (double)((double)VOLTAGE_TRANSFER_FUNCTION * (double)ADE9000_32K_FULL_SCALE_CODES); 
     }
-    _adcToIRMS = (double)((double)FULL_SCALE_VOLTAGE_I/(double)ADE9000_RMS_FULL_SCALE_CODES*(double)sqrt(2.0))*1000.0; // 1000 for mA
-    _adcToVRMS = (double)((double)FULL_SCALE_VOLTAGE_V/(double)ADE9000_RMS_FULL_SCALE_CODES*(double)sqrt(2.0)); 
-    _adcToPower = (double)((double)FULL_SCALE_VOLTAGE_V*(double)FULL_SCALE_VOLTAGE_I/((double)ADE9000_WATT_FULL_SCALE_CODES*2.0)); 
+    _adcToIRMS = 1.0 / ((double)((double)CURRENT_TRANSFER_FUNCTION * (double)ADE9000_RMS_FULL_SCALE_CODES * SQRT(2.0))*1000.0); // 1000 for mA
+    _adcToVRMS = 1.0 / ((double)((double)VOLTAGE_TRANSFER_FUNCTION * (double)ADE9000_RMS_FULL_SCALE_CODES * SQRT(2.0)));
+    _adcToPower = 1.0 / (double)((((double)CURRENT_TRANSFER_FUNCTION*(double)VOLTAGE_TRANSFER_FUNCTION)) * ((double)ADE9000_WATT_FULL_SCALE_CODES) * 2.0);
 
+    ADE9000_get_PGA_gain(&gainI, &gainV);
 
     _adcToI = (double)(_adcToI/gainI);
     _adcToV = (double)(_adcToV/gainV);
-    _adcToIRMS = (double)(_adcToIRMS/gainI/2.0); // TODO: where does /2.0 come from?
-    _adcToVRMS = (double)(_adcToVRMS/gainV/2.0);
+    _adcToIRMS = (double)(_adcToIRMS/gainI); // TODO: where does /2.0 come from?
+    _adcToVRMS = (double)(_adcToVRMS/gainV);
     _adcToPower = (double)(_adcToPower/(gainI*gainV));
 
 
@@ -260,6 +256,15 @@ void ADE9000_calcConstants() {
     _adcToPower_L1 = _adcToPower*(double)_calibration[0]*(double)_calibration[1];
     _adcToPower_L2 = _adcToPower*(double)_calibration[2]*(double)_calibration[3];
     _adcToPower_L3 = _adcToPower*(double)_calibration[4]*(double)_calibration[5];
+
+    // LOG_WRN("VTF=%f, CTF=%f", VOLTAGE_TRANSFER_FUNCTION, CURRENT_TRANSFER_FUNCTION);
+    // LOG_WRN("_calibration[] data");
+    // for (int i = 0; i < 6; i++) LOG_WRN("{%d: %f} ", i, _calibration[i]);
+
+    // LOG_WRN("_adcToI_L1: %f, _adcToI_L2: %f, _adcToI_L3: %f, _adcToV_L1: %f, _adcToV_L2: %f, _adcToV_L3: %f, _adcToIRMS_L1: %f, _adcToIRMS_L2: %f, "
+    //         "_adcToIRMS_L3: %f, _adcToVRMS_L1: %f, _adcToVRMS_L2: %f, _adcToVRMS_L3: %f, _adcToPower_L1: %f, _adcToPower_L2: %f, _adcToPower_L3: %f",
+    //         _adcToI_L1,_adcToI_L2,_adcToI_L3,_adcToV_L1,_adcToV_L2,_adcToV_L3,_adcToIRMS_L1,_adcToIRMS_L2,_adcToIRMS_L3,
+    //         _adcToVRMS_L1,_adcToVRMS_L2,_adcToVRMS_L3,_adcToPower_L1,_adcToPower_L2,_adcToPower_L3);
 
     // TODO:
     // For some reason, according to the calibration xlx, the adcToEnergy is not adcToPower/3600.0
@@ -442,7 +447,7 @@ uint16_t ADE9000__read_16(uint16_t addr) {
     tx_array[0] = addr >> 8;
     tx_array[1] = addr | 0x8;
 
-    if (_spi_speed > SPI_THRES) {
+    if (spi_cfg.frequency > SPI_THRES) {
         // _spi->transferBytes(tx_array, _rx_array, 5);
         SPI_MANUAL_TRANSCEIVE(tx_array, 2, _rx_array, 6);
         ADE9000__dataBitShift(_rx_array, 5);
@@ -463,7 +468,7 @@ uint32_t ADE9000__read_32(uint16_t addr) {
     tx_array[0] = addr >> 8;
     tx_array[1] = addr | 0x8;
 
-    if (_spi_speed > SPI_THRES) {
+    if (spi_cfg.frequency > SPI_THRES) {
         // _spi->transferBytes(tx_array, _rx_array, 7);
         SPI_MANUAL_TRANSCEIVE(tx_array, 2, _rx_array, 7);
         ADE9000__dataBitShift(_rx_array, 7);
@@ -519,7 +524,7 @@ uint16_t ADE9000__read_16_CRC(uint16_t addr) {
     // _spi->transferBytes( tx_array, _rx_array, 7);
     SPI_MANUAL_TRANSCEIVE(tx_array, 2, _rx_array, 7);
 
-    if (_spi_speed > SPI_THRES) ADE9000__dataBitShift(_rx_array, 7);
+    if (spi_cfg.frequency > SPI_THRES) ADE9000__dataBitShift(_rx_array, 7);
 
     uint8_t rx_data[2];
     rx_data[0] = _rx_array[2];
@@ -550,7 +555,7 @@ uint32_t ADE9000__read_32_CRC(uint16_t addr) {
     // _spi->transferBytes( tx_array, _rx_array, 9);
     SPI_MANUAL_TRANSCEIVE(tx_array, 2, _rx_array, 9);
 
-    if (_spi_speed > SPI_THRES) ADE9000__dataBitShift(_rx_array, 9);
+    if (spi_cfg.frequency > SPI_THRES) ADE9000__dataBitShift(_rx_array, 9);
 
     uint8_t rx_data[4];
     rx_data[0] = _rx_array[2];
@@ -1011,13 +1016,23 @@ void init_ade9000(const struct device* ade9000_dev)
 
     configure_ade9000_cs_pin();
 
-    if(ADE9000_init(50) < 0)
+    
+    if(ADE9000_init(INPUT_FREQUENCY) < 0)
     {
         LOG_ERR("ADE9000 initialization error.");
         return;
     }
-    // ADE9000_startSampling(8000);         // need to tweak this function
-
+    
+    ADE9000_startSampling(8000);         // need to tweak this function
+    
+    float cal_factors[] = { // voltage, current
+                                1.03,    1.0,        // Phase A
+                                1.03,    1.0,        // Phase B
+                                1.03,    1.0         // Phase C
+                          };
+    ADE9000_setCalibration(cal_factors);
+    ADE9000_calcConstants();
+    
 
     // float data[7] = {0.0};
     // float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
@@ -1047,11 +1062,11 @@ void init_ade9000(const struct device* ade9000_dev)
     //     {
     //         last_log = now;
     //         LOG_INF("ADE Data\n\t\t\t\t==========================");
-    //         LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", data[0], data[2], data[4]);
-    //         LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", data[1], data[3], data[5], data[6]);
-
-    //         LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", vRMS[0], period[0], phase[0], vRMS[1], period[0], phase[0], vRMS[2], period[0], phase[0]);
-    //         LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", activPOW[0], activPOW[1], activPOW[2]);
+    //         LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", (double)data[0], (double)data[2], (double)data[4]);
+    //         LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)data[1], (double)data[3], (double)data[5], (double)data[6]);
+            
+    //         LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[0], (double)period[0], (double)phase[0], (double)vRMS[1], (double)period[0], (double)phase[0], (double)vRMS[2], (double)period[0], (double)phase[0]);
+    //         LOG_INF("activPOW - L1: %.2f Watt\tL2: %.2f Watt\tL3: %.2f Watt\n", (double)activPOW[0], (double)activPOW[1], (double)activPOW[2]);
     //     }
 
     //     k_sleep(K_MSEC(10));

@@ -39,7 +39,9 @@ void app_init(void)
 
 	LOG_DBG("Initialization complete");
 
-	while (1) {
+	while (1)
+	{
+		int64_t now = k_uptime_get();
 
 		double temp_c = get_temp();
 		double hum_perc = get_humidity();
@@ -74,9 +76,10 @@ void app_init(void)
         ADE9000_readLinePeriod(period);
         ADE9000_readPhaseAngle(phase);
 
-        static int64_t last_log = 0;
-        int64_t now = k_uptime_get();
+		analyze_ground_faults((uint32_t)now);
 
+        static int64_t last_log = 0;
+        
         if(now - last_log >= 1000)
         {
             last_log = now;
@@ -94,9 +97,8 @@ void app_init(void)
             LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", (double)data[0], (double)data[2], (double)data[4]);
             LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)data[1], (double)data[3], (double)data[5], (double)data[6]);
             LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[0], (double)period[0], (double)phase[0], (double)vRMS[1], (double)period[0], (double)phase[0], (double)vRMS[2], (double)period[0], (double)phase[0]);
-            LOG_INF("activPOW - L1: %.2fV\tL2: %.2fV\tL3: %.2fV\n", (double)activPOW[0], (double)activPOW[1], (double)activPOW[2]);
+            LOG_INF("activPOW - L1: %.2f Watt\tL2: %.2f Watt\tL3: %.2f Watt\n", (double)activPOW[0], (double)activPOW[1], (double)activPOW[2]);
         }
-		analyze_ground_faults((uint32_t)now);
 
         k_sleep(K_MSEC(1));
     }

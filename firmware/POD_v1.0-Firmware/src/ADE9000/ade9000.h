@@ -13,8 +13,10 @@
 
 #include <defines.h>
 #include <drivers/ADE9000/ade9000_register.h>
+#include <drivers/ADE9000/ADE9000Calibration.h>
 
 #include <zephyr/drivers/spi.h>
+
 
 extern const struct device *_ade9000;
 extern const struct device *_ade9000_cs_gpio_dev;
@@ -158,7 +160,7 @@ typedef union {
 // class ADE9000 {
   // Threshold for bit shift at SPI speed
   #define SPI_THRES 15000000
-  #define SPI_SPEED 20000000
+  #define SPI_SPEED 5000000
   /****************************************************************************************************************
    Definitions
   ****************************************************************************************************************/
@@ -175,7 +177,8 @@ typedef union {
                       /*ACCMODE=0x0x9x for 3Wire delta when phase B is used as reference*/	
   #define ADE9000_TEMP_CFG 0x000F//0x000C			/*Temperature sensor enabled*/
   #define ADE9000_ZX_LP_SEL 0x001E		/*Line period and zero crossing obtained from combined signals VA,VB and VC*/	
-  #define ADE9000_MASK0 0x00000001		/*Enable EGYRDY interrupt*/				
+  #define ADE9000_MASK0 (ADE9000_MASK0_EGYRDY)	    /*Enable EGYRDY interrupt*/
+//   #define ADE9000_MASK0 0x00000001		/*Enable EGYRDY interrupt*/				
   #define ADE9000_MASK1 0x00000000		/*MASK1 interrupts disabled*/
   #define ADE9000_EVENT_MASK 0x00000000	/*Events disabled */
   #define ADE9000_VLEVEL	0x0022EA28		/*Assuming Vnom=1/2 of full scale. */
@@ -197,17 +200,9 @@ typedef union {
   /*Waveform buffer Settings*/
   #define ADE9000_WFB_CFG 0x1000			/*Neutral current samples enabled, Resampled data enabled*/
                       /*Burst all channels*/
-  /*Full scale Codes referred from Datasheet.Respective digital codes are produced when ADC inputs are at full scale. Donot Change. */
-  #define ADE9000_RMS_FULL_SCALE_CODES  52702092
-  #define ADE9000_WATT_FULL_SCALE_CODES 20694066
-  #define ADE9000_RESAMPLED_FULL_SCALE_CODES 18196
-  #define ADE9000_8K_FULL_SCALE_CODES  74532013
-  #define ADE9000_32K_FULL_SCALE_CODES  67107786
   
-  #define FULL_SCALE_VOLTAGE_V 994.7f   // volt
-  #define FULL_SCALE_VOLTAGE_I 127.065f // Ampere
-  #define STANDARD_VOLTAGE_GAIN 2.0 
-  #define STANDARD_CURRENT_GAIN 4.0 
+  /*Full scale Codes referred from Datasheet.Respective digital codes are produced when ADC inputs are at full scale. Donot Change. */
+  /*defined in ADE9000Calibration.h*/
   
   /*
   #define ADC_TO_V_8k 0.000013345943038
@@ -225,16 +220,6 @@ typedef union {
 
 
     void ADE9000_calcConstants();
-    
-    // // Configures Interrupt, SPI and reset ADE9000, config it with defaults
-    // // NOTE: If you have reconfigured the SPI interface, you have to call initSPI before!
-    // // USE IRAM_ATTR for the passed function
-    // // Example: void IRAM_ATTR ISR_FUNC_NAME(void) { ... }
-    // // call: init( ISR_FUNC_NAME );
-    // bool init(void (*interruptHandler)(void));
-    // bool init(void (*interruptHandler)(void*));
-    // // Init without interrupt function
-    // bool init();
 
     void setCalibration(float *values);
     // Reset the ADE9000
@@ -315,20 +300,9 @@ typedef union {
     void ADE9000_readLinePeriod(float *values);
     void ADE9000_readPhaseAngle(float *values);
 
-//     uint8_t gainI; // Current gain of all Channel A B C
-//     uint8_t gainV;
-//     int netfreq;
-
 //     void (*_logFunc)(const char * msg, ...);
 
-// //   private:
-//     float _calibration[6];
-//     float _adcToI_L1, _adcToI_L2, _adcToI_L3;
-//     float _adcToV_L1, _adcToV_L2, _adcToV_L3;
-//     float _adcToIRMS_L1,_adcToIRMS_L2,_adcToIRMS_L3;
-//     float _adcToVRMS_L1,_adcToVRMS_L2,_adcToVRMS_L3;
-//     float _adcToPower_L1,_adcToPower_L2,_adcToPower_L3;
-
+//   private:
     // If spi speed exceeds limit, the data is shifted by one bit (slower)
     void ADE9000__dataBitShift(uint8_t *data, uint16_t size);
 
@@ -355,25 +329,6 @@ typedef union {
     void ADE9000__burst_read_SPI_Buffer(uint8_t *rx_data, uint8_t bytes);
 
     // // Class members
-    // // SPIClass *_spi;
-    // bool _spi_inited = false;
-    
-    // // const uint8_t _PM1_PIN;
-    // // const uint8_t _DREADY_PIN;
-    // // const uint8_t _RESET_PIN;
-    // // int8_t _CS;
-
-    // int _samplingrate;
-    // void (*_interruptHandler)(void);
-    // void (*_interruptHandler2)(void*);
-    // bool _burst_en = false;
-
-
-    // uint32_t _spi_speed;
-    // uint8_t _rx_array[9];
-    // uint8_t _burst_read_tx_array [31];
-    // uint8_t _burst_read_rx_array [31];
-
     // const uint16_t addr32k = 0x5000;  // 32k Register @ addr 0x500(0)
     // const uint16_t addr8k = 0x5100;  // 8k Register @ addr 0x510(0)
 // };
