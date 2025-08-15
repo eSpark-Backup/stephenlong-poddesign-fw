@@ -63,8 +63,9 @@ void app_init(void)
 		float data[7] = {0.0};
     	float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
 		CurrentADC adc;
-        ADE9000_readRawMeasurement(&adc);
-        ADE9000_convertRawMeasurement(&adc, data);
+        // ADE9000_readRawMeasurement(&adc);
+        // ADE9000_convertRawMeasurement(&adc, data);
+        ADE9000_readCurrentRMS(data);
 
         struct VoltageRMSRegs voltRMS;
         struct ActivePowerRegs activePOW;
@@ -94,8 +95,9 @@ void app_init(void)
 			LOG_INF("Voltage %d.%02d V", volts, millivolts);
 
             LOG_INF("Power Data");
-            LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", (double)data[0], (double)data[2], (double)data[4]);
-            LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)data[1], (double)data[3], (double)data[5], (double)data[6]);
+            // LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", (double)data[0], (double)data[2], (double)data[4]);
+            // LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)data[1], (double)data[3], (double)data[5], (double)data[6]);
+            LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)data[0], (double)data[1], (double)data[2], (double)data[3]);
             LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[0], (double)period[0], (double)phase[0], (double)vRMS[1], (double)period[0], (double)phase[0], (double)vRMS[2], (double)period[0], (double)phase[0]);
             LOG_INF("activPOW - L1: %.2f Watt\tL2: %.2f Watt\tL3: %.2f Watt\n", (double)activPOW[0], (double)activPOW[1], (double)activPOW[2]);
         }

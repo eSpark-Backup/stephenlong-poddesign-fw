@@ -57,6 +57,14 @@
 #define GROUND_FAULT_SCR_SIG_VB     13
 #define GROUND_FAULT_SCR_SIG_VC     14
 
+enum PHASES_e
+{
+    PHASE_A,
+    PHASE_B,
+    PHASE_C,
+    PHASE_MAX,
+};
+
 static inline float map_value(float val, float in_min, float in_max, float out_min, float out_max) {
     return out_min + ((val - in_min) * (out_max - out_min) / (in_max - in_min));
 }

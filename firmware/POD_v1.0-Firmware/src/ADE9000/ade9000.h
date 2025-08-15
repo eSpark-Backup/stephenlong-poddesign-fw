@@ -1,13 +1,3 @@
-/***************************************************
- Library to interface with the ADE9000 Power Meter
-
- Feel free to use the code as it is.
-
- Gregor Richter, Benjamin Völker (voelkerb@me.com)
- Embedded Systems
- University of Freiburg, Institute of Informatik
- ****************************************************/
-
 #ifndef ADE9000_H_
 #define ADE9000_H_
 
@@ -20,6 +10,7 @@
 
 extern const struct device *_ade9000;
 extern const struct device *_ade9000_cs_gpio_dev;
+extern struct k_work_delayable _ade9000_worker;
 
 #define CS_PIN                      POWER_METER_IC_CS
 #define CS_PORT                     POWER_METER_IC_GPIO_PORT
@@ -34,6 +25,35 @@ extern const struct device *_ade9000_cs_gpio_dev;
 typedef struct{
   int32_t adc[7];// = { 0 };
 } CurrentADC;
+
+struct CurrentRMSRegs
+{
+    int32_t CurrentRMSReg_A;
+    int32_t CurrentRMSReg_B;
+    int32_t CurrentRMSReg_C;
+    int32_t CurrentRMSReg_N;
+};
+
+struct VoltageRMSRegs
+{
+    int32_t VoltageRMSReg_A;
+    int32_t VoltageRMSReg_B;
+    int32_t VoltageRMSReg_C;
+};
+
+struct FundCurrentRMSRegs
+{
+    int32_t FundCurrentRMSReg_A;
+    int32_t FundCurrentRMSReg_B;
+    int32_t FundCurrentRMSReg_C;
+};
+
+struct FundVoltageRMSRegs
+{
+    int32_t FundVoltageRMSReg_A;
+    int32_t FundVoltageRMSReg_B;
+    int32_t FundVoltageRMSReg_C;
+};
 
 struct ActivePowerRegs
 {
@@ -56,21 +76,6 @@ struct ApparentPowerRegs
     int32_t ApparentPowerReg_C;
 };
 
-struct VoltageRMSRegs
-{
-    int32_t VoltageRMSReg_A;
-    int32_t VoltageRMSReg_B;
-    int32_t VoltageRMSReg_C;
-};
-
-struct CurrentRMSRegs
-{
-    int32_t CurrentRMSReg_A;
-    int32_t CurrentRMSReg_B;
-    int32_t CurrentRMSReg_C;
-    int32_t CurrentRMSReg_N;
-};
-
 struct FundActivePowerRegs
 {
     int32_t FundActivePowerReg_A;
@@ -90,20 +95,6 @@ struct FundApparentPowerRegs
     int32_t FundApparentPowerReg_A;
     int32_t FundApparentPowerReg_B;
     int32_t FundApparentPowerReg_C;
-}; 
-
-struct FundVoltageRMSRegs
-{
-    int32_t FundVoltageRMSReg_A;
-    int32_t FundVoltageRMSReg_B;
-    int32_t FundVoltageRMSReg_C;
-}; 
-
-struct FundCurrentRMSRegs
-{
-    int32_t FundCurrentRMSReg_A;
-    int32_t FundCurrentRMSReg_B;
-    int32_t FundCurrentRMSReg_C;
 };
 
 
@@ -113,6 +104,36 @@ struct Energy {
     double reactive; 
     double apparent; 
     uint32_t validMillis;  
+};
+
+enum PhaseVarIndex_t
+{
+    PHASE_VAR_INSTANTANEOUS_VOLTAGE,
+    PHASE_VAR_INSTANTANEOUS_CURRENT,
+    PHASE_VAR_RMS_CURRENT,
+    PHASE_VAR_RMS_VOLTAGE,
+    PHASE_VAR_TOTAL_ACTIVE_POWER,
+    PHASE_VAR_TOTAL_APPARENT_POWER,
+    PHASE_VAR_TOTAL_REACTIVE_POWER,
+    PHASE_VAR_FUNDAMENTAL_REACTIVE_POWER,
+    PHASE_VAR_POWER_FACTOR,
+    PHASE_VAR_VOLTAGE_THD,
+    PHASE_VAR_CURRENT_THD,
+    PHASE_VAR_FUNDAMENTAL_ACTIVE_POWER,
+    PHASE_VAR_FUNDAMENTAL_APPARENT_POWER,
+    PHASE_VAR_FUNDAMENTAL_CURRENT_RMS,
+    PHASE_VAR_FUNDAMENTAL_VOLTAGE_RMS,
+    PHASE_VAR_CURRENT_FAST_RMS,
+    PHASE_VAR_VOLTAGE_FAST_RMS,
+    PHASE_VAR_CURRENT_FAST10_RMS,
+    PHASE_VAR_VOLTAGE_FAST10_RMS,
+
+    PHASE_VAR_COUNT // total number of variables
+};
+
+struct PhaseBurstData_t
+{
+    uint32_t value[PHASE_VAR_COUNT];
 };
 
 /*------Structure definition for STATUS0 register ADE9000--------------*/
@@ -192,7 +213,7 @@ typedef union {
   // #define ADE9000_EP_CFG 0x0011			/*Enable energy accumulation, accumulate samples at 8ksps*/
   //                     /*latch energy accumulation after EGYRDY*/
   //                     /*If accumulation is changed to half line cycle mode, change EGY_TIME*/
-  #define ADE9000_EP_CFG 0x0021			/*Enable energy accumulation, accumulate samples at 8ksps*/
+  #define ADE9000_EP_CFG    (ADE9000_EGY_PWR_EN | ADE9000_EGY_LD_ACCUM | ADE9000_NOLOAD_TMR)//0x0021			/*Enable energy accumulation, accumulate samples at 8ksps*/
                       /*read with reset feature*/
                       /*add to current energy*/
   #define ADE9000_EGY_TIME 0x1F3F 				/*Accumulate 8000 samples*/
@@ -333,6 +354,8 @@ typedef union {
     // const uint16_t addr8k = 0x5100;  // 8k Register @ addr 0x510(0)
 // };
 
+void run_rms_calibration_once(CalibrationData_t* calib_Data, enum PHASES_e phaseSel);
+void get_PGA_gain(uint8_t *currentGain, uint8_t *voltageGain);
 
 void init_ade9000(const struct device* ade9000_dev);
 

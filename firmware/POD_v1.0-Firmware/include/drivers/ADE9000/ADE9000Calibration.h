@@ -1,8 +1,19 @@
 #ifndef ADE9000CALIBRATION_H
 #define ADE9000CALIBRATION_H
 
-#define NOMINAL_INPUT_VOLTAGE 		200       // Nominal Calibrating RMS Voltage on all phases (Vrms)
-#define NOMINAL_INPUT_CURRENT 		5         // Nominal Calibrating RMS Current on all phases (Irms)
+/*
+ * Calibration document can be found at
+ * https://www.analog.com/media/en/technical-documentation/user-guides/ade9000-ug-1098.pdf
+ */
+
+typedef struct
+{
+	double calibrationCurrent;
+	double calibrationVoltage;
+}CalibrationData_t;
+
+#define NOMINAL_INPUT_VOLTAGE 		220       // Nominal Calibrating RMS Voltage on all phases (Vrms)
+#define NOMINAL_INPUT_CURRENT 		10        // Nominal Calibrating RMS Current on all phases (Irms)
 #define INPUT_FREQUENCY 	  		50        // Nominal Calibrating frequency. Used to calculate Omega for phase calibration.Ensure ACCMODE register is set to correct frequency
 #define CALIBRATION_ANGLE_DEGREES 	60		  // Calibration Angle in Degrees.Used for phase calibration
 
@@ -11,8 +22,10 @@
 #define STANDARD_VOLTAGE_GAIN 		2.0 
 #define STANDARD_CURRENT_GAIN 		4.0
 
-#define  I_CHANNEL_ADC_FS  (0.70710678 / STANDARD_CURRENT_GAIN)
-#define  V_CHANNEL_ADC_FS  (0.70710678 / STANDARD_VOLTAGE_GAIN)
+/* 0.707 Vrms is ADC full-scale at gain=1. FS at gain=g is 0.707/g */
+#define  ADC_FS_RMS(g)     (0.7071067811865476 / (double)(g))
+#define  I_CHANNEL_ADC_FS  (0.7071067811865476 / STANDARD_CURRENT_GAIN)
+#define  V_CHANNEL_ADC_FS  (0.7071067811865476 / STANDARD_VOLTAGE_GAIN)
 
 
 /*Transfer function*/
@@ -41,8 +54,8 @@ It is the voltage at the ADC input pins per input Voltage(V)(Volts/Volts)
 E.g. The defaul atteunation factor on board is 801. 
 Voltage transfer function = 1/801= 0.001248 ~=0.00125
 ****************************************************************************************************************/ 
-#define R_HIGH 			801500.0f						// R1(upper) in voltage divider network
-#define R_LOW 			1000.0f							// R2(lower) in voltage divider network
+#define R_HIGH 			801.5000f						// R1(upper) in voltage divider network
+#define R_LOW 			1.0000f							// R2(lower) in voltage divider network
 #define VOLTAGE_TRANSFER_FUNCTION  			((1.0f / (R_HIGH + R_LOW)) * R_LOW) //The RMS voltage at the ADC input pins per input RMS voltage (V/V) 
 /****************************************************************************************************************
 									Constants: Do not change 

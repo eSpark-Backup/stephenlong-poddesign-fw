@@ -1,13 +1,3 @@
-/***************************************************
- Library to interface with the ADE9000 Power Meter
-
- Feel free to use the code as it is.
-
- Gregor Richter, Benjamin Völker (voelkerb@me.com)
- Embedded Systems
- University of Freiburg, Institute of Informatik
- ****************************************************/
-
 #include "CRC-16-CCITT.h"  
 
 #include <stdint.h>
@@ -48,6 +38,39 @@ LOG_MODULE_REGISTER(ADE9000_POD, ADE9000_LOG_LEVEL);
 const struct device *_ade9000 = NULL;
 const struct device *_ade9000_cs_gpio_dev = DEVICE_DT_GET(DT_NODELABEL(CS_PORT));
 
+// Register names from 0x680
+static const char *phaseVarNames[PHASE_VAR_COUNT] =
+{
+    "Instantaneous Voltage",
+    "Instantaneous Current",
+    "RMS Current",
+    "RMS Voltage",
+    "Total Active Power",
+    "Total Apparent Power",
+    "Total Reactive Power",
+    "Fundamental Reactive Power",
+    "Power Factor",
+    "Voltage THD",
+    "Current THD",
+    "Fundamental Active Power",
+    "Fundamental Apparent Power",
+    "Fundamental Current RMS",
+    "Fundamental Voltage RMS",
+    "Current Fast RMS",
+    "Voltage Fast RMS",
+    "Current Fast10 RMS",
+    "Voltage Fast10 RMS"
+};
+
+#define ADE_READ_INTERVAL  500
+#define ADE_WQ_PRIORITY    5
+#define ADE_WQ_STACK_SIZE  1024
+K_THREAD_STACK_DEFINE(ade_stack_area, 1024);
+struct k_work_q         _ade9000_work_q;
+struct k_work_delayable _ade9000_worker;
+
+struct PhaseBurstData_t phaseData[PHASE_MAX];
+
 // struct ade9000_spi ade9000;
 static struct spi_config spi_cfg = {
     .frequency = SPI_SPEED,
@@ -57,7 +80,7 @@ static struct spi_config spi_cfg = {
 
 
 uint8_t gainI; // Current gain of all Channel A B C
-    uint8_t gainV;
+uint8_t gainV;
     int netfreq;
 
     void (*_logFunc)(const char * msg, ...);
@@ -88,8 +111,8 @@ uint8_t gainI; // Current gain of all Channel A B C
     uint8_t _burst_read_tx_array [31];
     uint8_t _burst_read_rx_array [31];
 
-    const uint16_t addr32k = 0x5000;  // 32k Register @ addr 0x500(0)
-    const uint16_t addr8k = 0x5100;  // 8k Register @ addr 0x510(0)
+    const uint16_t addr32k = 0x500;  // 32k Register @ addr 0x500(0)
+    const uint16_t addr8k = 0x510;  // 8k Register @ addr 0x510(0)
 
 
 
@@ -121,19 +144,10 @@ static void configure_ade9000_cs_pin(void)
         return;
     }
 
-    cs_low();
+    cs_high();
 
     LOG_DBG("ADE9000 CS configured on %s.%d", _ade9000_cs_gpio_dev->name, CS_PIN);
 }
-
-
-// struct spi_struct_t {
-//     spi_dev_t * dev;
-// #if !CONFIG_DISABLE_HAL_LOCKS
-//     xSemaphoreHandle lock;
-// #endif
-//     uint8_t num;
-// };
 
 
 // _____________________________________________________________________________
@@ -158,9 +172,9 @@ int8_t ADE9000_init(int fNet)
     gainV = STANDARD_VOLTAGE_GAIN;
 
 
-    for (uint8_t i = 0; i < 6; i++) _calibration[i] = 1.0;
+    // for (uint8_t i = 0; i < 6; i++) _calibration[i] = 1.0;
 
-    ADE9000_calcConstants();
+    // ADE9000_calcConstants();
 
     _logFunc = NULL;
 
@@ -168,7 +182,6 @@ int8_t ADE9000_init(int fNet)
 
     uint32_t chip_id = ADE9000__read_32(ADDR_ID);
     if(!(chip_id & ADE9000_ADE9000_ID))
-    // if(chip_id != ADE9000_CHIP_ID)
     {
         LOG_ERR("ADE id not match. chip_id: 0x%X", chip_id);
         return -1;
@@ -178,7 +191,9 @@ int8_t ADE9000_init(int fNet)
 
     ADE9000__write_16(ADDR_PGA_GAIN,ADE9000_PGA_GAIN);
     ADE9000__write_32(ADDR_CONFIG0,ADE9000_CONFIG0); 
-    ADE9000__write_16(ADDR_CONFIG1,ADE9000_CONFIG1); 
+    // ADE9000__write_16(ADDR_CONFIG1,ADE9000_CONFIG1);
+    ADE9000__write_16(ADDR_CONFIG1, (ADE9000__read_16(ADDR_CONFIG1) | (ADE9000_BURST_EN)));
+
     ADE9000__write_16(ADDR_CONFIG2,ADE9000_CONFIG2); 
     ADE9000__write_16(ADDR_CONFIG3,ADE9000_CONFIG3); 
     if (netfreq == 60) {
@@ -191,7 +206,22 @@ int8_t ADE9000_init(int fNet)
     ADE9000__write_32(ADDR_MASK0,ADE9000_MASK0); 
     ADE9000__write_32(ADDR_MASK1,ADE9000_MASK1); 
     ADE9000__write_32(ADDR_EVENT_MASK,ADE9000_EVENT_MASK); 
-    ADE9000__write_16(ADDR_WFB_CFG,ADE9000_WFB_CFG); 
+    ADE9000__write_16(ADDR_WFB_CFG,ADE9000_WFB_CFG);
+
+    // ADE9000__write_16(ADDR_WFB_CFG, 0);  // Ensure WF_CAP_EN = 0
+    // ADE9000__write_16(ADDR_WFB_CFG,
+    //     (ADE9000_WF_SRC & BIT(9)) |            // choose waveform source
+    //     (1 << ADDR_WFB_CFG) |   // fixed rate
+    //     ADDR_WFB_CFG |  // continuous filling
+    //     (ADE9000_WF_IN_EN) |     // include IN channel if needed
+    //     ADDR_WFB_CFG        // e.g. 0b0000 for all channels
+    // );
+    // ADE9000__write_16(ADDR_WFB_CFG, ADE9000__read_16(ADDR_WFB_CFG) | ADE9000_WF_CAP_EN);  // Enable buffer
+
+    ADE9000__write_32(ADDR_ACT_NL_LVL,0); 
+    ADE9000__write_32(ADDR_REACT_NL_LVL,0); 
+    ADE9000__write_32(ADDR_APP_NL_LVL,0); 
+
     ADE9000__write_32(ADDR_DICOEFF,ADE9000_DICOEFF); 
     ADE9000__write_32(ADDR_VLEVEL,ADE9000_VLEVEL); 
     ADE9000__write_16(ADDR_EGY_TIME,ADE9000_EGY_TIME); 
@@ -208,7 +238,7 @@ void ADE9000_setCalibration(float *values)
     for (int i = 0; i < 6; i++) _calibration[i] = values[i];
 }
 
-void ADE9000_get_PGA_gain(uint8_t *currentGain, uint8_t *voltageGain) {
+void get_PGA_gain(uint8_t *currentGain, uint8_t *voltageGain) {
     uint16_t pgaGainRegister;
 
     pgaGainRegister = ADE9000__read_16(ADDR_PGA_GAIN);
@@ -220,6 +250,7 @@ void ADE9000_get_PGA_gain(uint8_t *currentGain, uint8_t *voltageGain) {
 
 void ADE9000_calcConstants() {
     double _adcToI, _adcToV, _adcToIRMS, _adcToVRMS, _adcToPower;
+    get_PGA_gain(&gainI, &gainV);
 
     if (_samplingrate == 8000) {
         _adcToI = 1.0 / (double)((double)CURRENT_TRANSFER_FUNCTION * (double)ADE9000_8K_FULL_SCALE_CODES * 1000.0); // 1000 for mA
@@ -228,16 +259,13 @@ void ADE9000_calcConstants() {
         _adcToI = 1.0 / (double)((double)CURRENT_TRANSFER_FUNCTION * (double)ADE9000_32K_FULL_SCALE_CODES * 1000.0); // 1000 for mA
         _adcToV = 1.0 / (double)((double)VOLTAGE_TRANSFER_FUNCTION * (double)ADE9000_32K_FULL_SCALE_CODES); 
     }
-    _adcToIRMS = 1.0 / ((double)((double)CURRENT_TRANSFER_FUNCTION * (double)ADE9000_RMS_FULL_SCALE_CODES * SQRT(2.0))*1000.0); // 1000 for mA
-    _adcToVRMS = 1.0 / ((double)((double)VOLTAGE_TRANSFER_FUNCTION * (double)ADE9000_RMS_FULL_SCALE_CODES * SQRT(2.0)));
+    _adcToIRMS = (ADC_FS_RMS(gainI) / ((double)CURRENT_TRANSFER_FUNCTION * ((double)ADE9000_RMS_FULL_SCALE_CODES))) * 1000.0; // 1000 for mA
+    _adcToVRMS = ADC_FS_RMS(gainV) / ((double)VOLTAGE_TRANSFER_FUNCTION * ((double)ADE9000_RMS_FULL_SCALE_CODES));
     _adcToPower = 1.0 / (double)((((double)CURRENT_TRANSFER_FUNCTION*(double)VOLTAGE_TRANSFER_FUNCTION)) * ((double)ADE9000_WATT_FULL_SCALE_CODES) * 2.0);
 
-    ADE9000_get_PGA_gain(&gainI, &gainV);
 
     _adcToI = (double)(_adcToI/gainI);
     _adcToV = (double)(_adcToV/gainV);
-    _adcToIRMS = (double)(_adcToIRMS/gainI); // TODO: where does /2.0 come from?
-    _adcToVRMS = (double)(_adcToVRMS/gainV);
     _adcToPower = (double)(_adcToPower/(gainI*gainV));
 
 
@@ -285,7 +313,7 @@ void ADE9000_reset(void){
 }
 
 // _____________________________________________________________________________
-void ADE9000_resetEnergy() {
+void ADE9000_resetEnergy() {                    // invalid write on read-only registers?
     ADE9000__write_32(ADDR_AWATTHR_HI,0);
     ADE9000__write_32(ADDR_BWATTHR_HI,0);
     ADE9000__write_32(ADDR_CWATTHR_HI,0);
@@ -642,16 +670,14 @@ void ADE9000__burst_read(uint16_t addr, uint32_t *data, uint16_t size) {
         data[i] |= rx_array[ 3+i*4 ] << 16;
         data[i] |= rx_array[ 4+i*4 ] << 8;
         data[i] |= rx_array[ 5+i*4 ];
+        LOG_ERR("data[%d]: %d ", i, data[i]);
     }
+    LOG_ERR("\n");
 }
 
 
 // _____________________________________________________________________________
 void ADE9000__burst_write_SPI(uint8_t *tx_data, uint8_t bytes) {
-    // if(!_spi->bus()) {
-    //     return;
-    // }
-
     if(bytes > 64) bytes = 64;
 
     // uint32_t words = (bytes + 3) / 4;//16 max
@@ -675,9 +701,6 @@ void ADE9000__burst_write_SPI(uint8_t *tx_data, uint8_t bytes) {
 
 // _____________________________________________________________________________
 void ADE9000__burst_read_SPI_Buffer(uint8_t *rx_data, uint8_t bytes) {
-    // if(!_spi->bus()) {
-    //     return;
-    // }
 
     if(bytes > 64) bytes = 64;
 
@@ -917,14 +940,27 @@ void ADE9000_readFundCurrentRMS(float *values) {
 }
 
 // _____________________________________________________________________________
+// K_W is your power scaling (codes -> Watts), e.g. _adcToPower_Lx
+// EGY_TIME is the register value, i.e., 7999 for 1 s @ 8ksps
+// Wh = HI * K_W * 8192 / (EGY_TIME + 1) / 3600
 void ADE9000_readActiveEnergy(double *values) {
+    const double k = (8192.0) / ((double)ADE9000_EGY_TIME + 1.0);
+
     uint32_t high = (ADE9000__read_32(ADDR_AWATTHR_HI));
+    uint32_t low = (ADE9000__read_32(ADDR_AWATTHR_LO));
+    uint64_t EnergyCodes = ( (uint64_t)high << 13 ) | (low & 0x1FFF );
     // _write_32(ADDR_AWATTHR_HI,0); // Reset is done via config 
-    values[0] = (double)(high*_adcToPower_L1/3600.0f);
+    values[0] = (double)((EnergyCodes*_adcToPower_L1*k)/3600.0f);
+    
     high = (ADE9000__read_32(ADDR_BWATTHR_HI));
-    values[1] = (double)(high*_adcToPower_L2/3600.0f);
+    low = (ADE9000__read_32(ADDR_BWATTHR_LO));
+    EnergyCodes = ( (uint64_t)high << 13 ) | (low & 0x1FFF );
+    values[1] = (double)((EnergyCodes*_adcToPower_L2*k)/3600.0f);
+
     high = (ADE9000__read_32(ADDR_CWATTHR_HI));
-    values[2] = (double)(high*_adcToPower_L3/3600.0f);
+    low = (ADE9000__read_32(ADDR_CWATTHR_LO));
+    EnergyCodes = ( (uint64_t)high << 13 ) | (low & 0x1FFF );
+    values[2] = (double)((EnergyCodes*_adcToPower_L3*k)/3600.0f);
 }
 
 // _____________________________________________________________________________
@@ -1004,6 +1040,40 @@ void ADE9000_readPhaseAngle(float *values) {
     values[2] = high*consta;
 }
 
+static inline bool ade_energy_ready(void)
+{
+    uint32_t s = ADE9000__read_32(ADDR_STATUS0);
+    return (s & (ADE9000_STATUS0_EGYRDY)) != 0;     // use the proper bit mask
+}
+
+void print_phase_data(struct PhaseBurstData_t* data, uint8_t phase)
+{
+    LOG_DBG("=== Phase %d ===", phase);
+    for (int var = 0; var < PHASE_VAR_COUNT; var++)
+    {
+        LOG_DBG("%-30s : %u", phaseVarNames[var], phaseData[phase].value[var]);
+    }
+    LOG_DBG("\n");
+}
+
+void ade9000_work_handler(struct k_work *work)
+{
+    ARG_UNUSED(work);
+    LOG_ERR("Worker triggerred.");
+
+    // read phase data in burst mode here
+    ADE9000__burst_read(ADDR_AV_PCF_2, phaseData[PHASE_A].value, PHASE_VAR_COUNT*3);
+    // ADE9000__burst_read(ADDR_BV_PCF_2, phaseData[PHASE_B].value, PHASE_VAR_COUNT);
+    // ADE9000__burst_read(ADDR_CV_PCF_2, phaseData[PHASE_C].value, PHASE_VAR_COUNT);
+
+    // print_phase_data(&phaseData[PHASE_A], PHASE_A);
+    // print_phase_data(&phaseData[PHASE_B], PHASE_B);
+    // print_phase_data(&phaseData[PHASE_C], PHASE_C);
+
+    // Reschedule
+    k_work_reschedule(&_ade9000_worker, K_MSEC(ADE_READ_INTERVAL)); // Poll every 500ms
+}
+
 void init_ade9000(const struct device* ade9000_dev)
 {
     _ade9000 = ade9000_dev;
@@ -1025,52 +1095,73 @@ void init_ade9000(const struct device* ade9000_dev)
     
     ADE9000_startSampling(8000);         // need to tweak this function
     
-    float cal_factors[] = { // voltage, current
-                                1.03,    1.0,        // Phase A
-                                1.03,    1.0,        // Phase B
-                                1.03,    1.0         // Phase C
-                          };
-    ADE9000_setCalibration(cal_factors);
+    float calibration_factors[] = { // voltage, current
+                                        1.03,    0.5,        // Phase A
+                                        1.03,    0.5,        // Phase B
+                                        1.03,    0.5         // Phase C
+                                  };
+    ADE9000_setCalibration(calibration_factors);
     ADE9000_calcConstants();
+
+    // CalibrationData_t calData = {232.6, 11.44};      // input the calibration voltage and current provided on terminals
+    // run_rms_calibration_once(&calData, PHASE_A);
+
+
+
+    // // creating seperate work queue to isolate this thread from blocking other worker threads
+    // k_work_queue_start(&_ade9000_work_q, ade_stack_area, K_THREAD_STACK_SIZEOF(ade_stack_area), ADE_WQ_PRIORITY, NULL);
     
+    // k_work_init_delayable(&_ade9000_worker, ade9000_work_handler);
+    // k_work_schedule_for_queue(&_ade9000_work_q, &_ade9000_worker, K_MSEC(ADE_READ_INTERVAL));
 
-    // float data[7] = {0.0};
-    // float vRMS[3], activPOW[3], period[3], phase[3] = {0.0};
+    float iRMS[4], vRMS[3], activPOW[3], reactivPOW[3], apparentPOW[3], activENERGY[3], reactivENERGY[3], apparentENERGY[3], period[3], phase[3] = {0.0};
 
-    // while(1)
-    // {
-    //     // ADE9000_readMeasurement(data);
-
-    //     CurrentADC adc;
-    //     ADE9000_readRawMeasurement(&adc);
-    //     ADE9000_convertRawMeasurement(&adc, data);
-
-    //     struct VoltageRMSRegs voltRMS;
-    //     struct ActivePowerRegs activePOW;
-    //     ADE9000_readVoltageRMSRegs(&voltRMS);
-    //     ADE9000_convertVoltageRMSRegs(&voltRMS, vRMS);
-    //     ADE9000_readActivePowerRegs(&activePOW);
-    //     ADE9000_convertActivePowerRegs(&activePOW, activPOW);
+    while(1)
+    {
+        static bool energyRead = false;
+        static int64_t last_log = 0;
+        int64_t now = k_uptime_get();
         
-    //     ADE9000_readLinePeriod(period);
-    //     ADE9000_readPhaseAngle(phase);
+        ADE9000_readCurrentRMS(iRMS);
+        ADE9000_readVoltageRMS(vRMS);
+        ADE9000_readActivePower(activPOW);
+        ADE9000_readReactivePower(reactivPOW);
+        ADE9000_readApparentPower(apparentPOW);
 
-    //     static int64_t last_log = 0;
-    //     int64_t now = k_uptime_get();
+        if(ade_energy_ready())
+        {
+            ADE9000_readActiveEnergy(activENERGY);
+            ADE9000_readReactiveEnergy(reactivENERGY);
+            ADE9000_readApparentEnergy(apparentENERGY);
+            energyRead = true;
+        }
+        
+        ADE9000_readLinePeriod(period);
+        ADE9000_readPhaseAngle(phase);
 
-    //     if(now - last_log >= 500)
-    //     {
-    //         last_log = now;
-    //         LOG_INF("ADE Data\n\t\t\t\t==========================");
-    //         LOG_INF("V - L1: %.2fV\tL2: %.2fV\tL3: %.2fV", (double)data[0], (double)data[2], (double)data[4]);
-    //         LOG_INF("I - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)data[1], (double)data[3], (double)data[5], (double)data[6]);
+        if(now - last_log >= 500)
+        {
+            last_log = now;
+            LOG_INF("ADE Data\n\t\t\t\t==========================");
+            LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[PHASE_A], (double)period[PHASE_A], (double)phase[PHASE_A], (double)vRMS[PHASE_B], (double)period[PHASE_B], (double)phase[PHASE_B], (double)vRMS[PHASE_C], (double)period[PHASE_C], (double)phase[PHASE_C]);
+            LOG_INF("iRMS - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)iRMS[PHASE_A], (double)iRMS[PHASE_B], (double)iRMS[PHASE_C], (double)iRMS[3]);
+
+            LOG_INF("activPower - L1: %.2f Watt \tL2: %.2f Watt \tL3: %.2f Watt ", (double)activPOW[PHASE_A], (double)activPOW[PHASE_B], (double)activPOW[PHASE_C]);
+            LOG_INF("reactivPower - L1: %.2f VAR \tL2: %.2f VAR \tL3: %.2f VAR ", (double)reactivPOW[PHASE_A], (double)reactivPOW[PHASE_B], (double)reactivPOW[PHASE_C]);
+            LOG_INF("apparentPower - L1: %.2f VA \tL2: %.2f VA \tL3: %.2f VA", (double)apparentPOW[PHASE_A], (double)apparentPOW[PHASE_B], (double)apparentPOW[PHASE_C]);
             
-    //         LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[0], (double)period[0], (double)phase[0], (double)vRMS[1], (double)period[0], (double)phase[0], (double)vRMS[2], (double)period[0], (double)phase[0]);
-    //         LOG_INF("activPOW - L1: %.2f Watt\tL2: %.2f Watt\tL3: %.2f Watt\n", (double)activPOW[0], (double)activPOW[1], (double)activPOW[2]);
-    //     }
+            if(energyRead)
+            {
+                LOG_INF("activEnergy - L1: %.2f Watt-hr\tL2: %.2f Watt-hr\tL3: %.2f Watt-hr", (double)activENERGY[PHASE_A], (double)activENERGY[PHASE_B], (double)activENERGY[PHASE_C]);
+                LOG_INF("reactivEnergy - L1: %.2f VAR-hr\tL2: %.2f VAR-hr\tL3: %.2f VAR-hr", (double)reactivENERGY[PHASE_A], (double)reactivENERGY[PHASE_B], (double)reactivENERGY[PHASE_C]);
+                LOG_INF("apparentEnergy - L1: %.2f VA-hr\tL2: %.2f VA-hr\tL3: %.2f VA-hr", (double)apparentENERGY[PHASE_A], (double)apparentENERGY[PHASE_B], (double)apparentENERGY[PHASE_C]);
+                energyRead = false;
+            }
+            LOG_INF("\n");
+        }
 
-    //     k_sleep(K_MSEC(10));
-    // }
+        k_sleep(K_MSEC(10));
+    }
 
     LOG_DBG("ADE9000 power ic initialized");
 }

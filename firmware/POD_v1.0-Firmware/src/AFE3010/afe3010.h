@@ -25,13 +25,6 @@ extern struct gpio_callback _afe3010_cb_data;
 #define AFE3010_PTT_VC      GROUND_FAULT_PTT_VC
 #define AFE3010_SCR_SIG_VC  GROUND_FAULT_SCR_SIG_VC
 
-enum PHASES_e
-{
-    PHASE_A,
-    PHASE_B,
-    PHASE_C,
-};
-
 enum PIN_STATE_e
 {
     PULL_UP,
