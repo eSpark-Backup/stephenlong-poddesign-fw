@@ -354,6 +354,8 @@ typedef union {
     // const uint16_t addr8k = 0x5100;  // 8k Register @ addr 0x510(0)
 // };
 
+bool ade_energy_ready(void);
+
 void run_rms_calibration_once(CalibrationData_t* calib_Data, enum PHASES_e phaseSel);
 void get_PGA_gain(uint8_t *currentGain, uint8_t *voltageGain);
 

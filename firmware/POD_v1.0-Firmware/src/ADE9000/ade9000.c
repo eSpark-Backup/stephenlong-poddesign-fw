@@ -1040,7 +1040,7 @@ void ADE9000_readPhaseAngle(float *values) {
     values[2] = high*consta;
 }
 
-static inline bool ade_energy_ready(void)
+bool ade_energy_ready(void)
 {
     uint32_t s = ADE9000__read_32(ADDR_STATUS0);
     return (s & (ADE9000_STATUS0_EGYRDY)) != 0;     // use the proper bit mask
@@ -1114,54 +1114,54 @@ void init_ade9000(const struct device* ade9000_dev)
     // k_work_init_delayable(&_ade9000_worker, ade9000_work_handler);
     // k_work_schedule_for_queue(&_ade9000_work_q, &_ade9000_worker, K_MSEC(ADE_READ_INTERVAL));
 
-    float iRMS[4], vRMS[3], activPOW[3], reactivPOW[3], apparentPOW[3], activENERGY[3], reactivENERGY[3], apparentENERGY[3], period[3], phase[3] = {0.0};
+    // float iRMS[4], vRMS[3], activPOW[3], reactivPOW[3], apparentPOW[3], activENERGY[3], reactivENERGY[3], apparentENERGY[3], period[3], phase[3] = {0.0};
 
-    while(1)
-    {
-        static bool energyRead = false;
-        static int64_t last_log = 0;
-        int64_t now = k_uptime_get();
+    // while(1)
+    // {
+    //     static bool energyRead = false;
+    //     static int64_t last_log = 0;
+    //     int64_t now = k_uptime_get();
         
-        ADE9000_readCurrentRMS(iRMS);
-        ADE9000_readVoltageRMS(vRMS);
-        ADE9000_readActivePower(activPOW);
-        ADE9000_readReactivePower(reactivPOW);
-        ADE9000_readApparentPower(apparentPOW);
+    //     ADE9000_readCurrentRMS(iRMS);
+    //     ADE9000_readVoltageRMS(vRMS);
+    //     ADE9000_readActivePower(activPOW);
+    //     ADE9000_readReactivePower(reactivPOW);
+    //     ADE9000_readApparentPower(apparentPOW);
 
-        if(ade_energy_ready())
-        {
-            ADE9000_readActiveEnergy(activENERGY);
-            ADE9000_readReactiveEnergy(reactivENERGY);
-            ADE9000_readApparentEnergy(apparentENERGY);
-            energyRead = true;
-        }
+    //     if(ade_energy_ready())
+    //     {
+    //         ADE9000_readActiveEnergy(activENERGY);
+    //         ADE9000_readReactiveEnergy(reactivENERGY);
+    //         ADE9000_readApparentEnergy(apparentENERGY);
+    //         energyRead = true;
+    //     }
         
-        ADE9000_readLinePeriod(period);
-        ADE9000_readPhaseAngle(phase);
+    //     ADE9000_readLinePeriod(period);
+    //     ADE9000_readPhaseAngle(phase);
 
-        if(now - last_log >= 500)
-        {
-            last_log = now;
-            LOG_INF("ADE Data\n\t\t\t\t==========================");
-            LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[PHASE_A], (double)period[PHASE_A], (double)phase[PHASE_A], (double)vRMS[PHASE_B], (double)period[PHASE_B], (double)phase[PHASE_B], (double)vRMS[PHASE_C], (double)period[PHASE_C], (double)phase[PHASE_C]);
-            LOG_INF("iRMS - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)iRMS[PHASE_A], (double)iRMS[PHASE_B], (double)iRMS[PHASE_C], (double)iRMS[3]);
+    //     if(now - last_log >= 500)
+    //     {
+    //         last_log = now;
+    //         LOG_INF("ADE Data\n\t\t\t\t==========================");
+    //         LOG_INF("vRMS - L1: %.2fV(%.2fHz)(%.2f°)\tL2: %.2fV(%.2fHz)(%.2f°)\tL3: %.2fV(%.2fHz)(%.2f°)", (double)vRMS[PHASE_A], (double)period[PHASE_A], (double)phase[PHASE_A], (double)vRMS[PHASE_B], (double)period[PHASE_B], (double)phase[PHASE_B], (double)vRMS[PHASE_C], (double)period[PHASE_C], (double)phase[PHASE_C]);
+    //         LOG_INF("iRMS - L1: %.2fmA\tL2: %.2fmA\tL3: %.2fmA\tN: %.2fmA", (double)iRMS[PHASE_A], (double)iRMS[PHASE_B], (double)iRMS[PHASE_C], (double)iRMS[3]);
 
-            LOG_INF("activPower - L1: %.2f Watt \tL2: %.2f Watt \tL3: %.2f Watt ", (double)activPOW[PHASE_A], (double)activPOW[PHASE_B], (double)activPOW[PHASE_C]);
-            LOG_INF("reactivPower - L1: %.2f VAR \tL2: %.2f VAR \tL3: %.2f VAR ", (double)reactivPOW[PHASE_A], (double)reactivPOW[PHASE_B], (double)reactivPOW[PHASE_C]);
-            LOG_INF("apparentPower - L1: %.2f VA \tL2: %.2f VA \tL3: %.2f VA", (double)apparentPOW[PHASE_A], (double)apparentPOW[PHASE_B], (double)apparentPOW[PHASE_C]);
+    //         LOG_INF("activPower - L1: %.2f Watt \tL2: %.2f Watt \tL3: %.2f Watt ", (double)activPOW[PHASE_A], (double)activPOW[PHASE_B], (double)activPOW[PHASE_C]);
+    //         LOG_INF("reactivPower - L1: %.2f VAR \tL2: %.2f VAR \tL3: %.2f VAR ", (double)reactivPOW[PHASE_A], (double)reactivPOW[PHASE_B], (double)reactivPOW[PHASE_C]);
+    //         LOG_INF("apparentPower - L1: %.2f VA \tL2: %.2f VA \tL3: %.2f VA", (double)apparentPOW[PHASE_A], (double)apparentPOW[PHASE_B], (double)apparentPOW[PHASE_C]);
             
-            if(energyRead)
-            {
-                LOG_INF("activEnergy - L1: %.2f Watt-hr\tL2: %.2f Watt-hr\tL3: %.2f Watt-hr", (double)activENERGY[PHASE_A], (double)activENERGY[PHASE_B], (double)activENERGY[PHASE_C]);
-                LOG_INF("reactivEnergy - L1: %.2f VAR-hr\tL2: %.2f VAR-hr\tL3: %.2f VAR-hr", (double)reactivENERGY[PHASE_A], (double)reactivENERGY[PHASE_B], (double)reactivENERGY[PHASE_C]);
-                LOG_INF("apparentEnergy - L1: %.2f VA-hr\tL2: %.2f VA-hr\tL3: %.2f VA-hr", (double)apparentENERGY[PHASE_A], (double)apparentENERGY[PHASE_B], (double)apparentENERGY[PHASE_C]);
-                energyRead = false;
-            }
-            LOG_INF("\n");
-        }
+    //         if(energyRead)
+    //         {
+    //             LOG_INF("activEnergy - L1: %.2f Watt-hr\tL2: %.2f Watt-hr\tL3: %.2f Watt-hr", (double)activENERGY[PHASE_A], (double)activENERGY[PHASE_B], (double)activENERGY[PHASE_C]);
+    //             LOG_INF("reactivEnergy - L1: %.2f VAR-hr\tL2: %.2f VAR-hr\tL3: %.2f VAR-hr", (double)reactivENERGY[PHASE_A], (double)reactivENERGY[PHASE_B], (double)reactivENERGY[PHASE_C]);
+    //             LOG_INF("apparentEnergy - L1: %.2f VA-hr\tL2: %.2f VA-hr\tL3: %.2f VA-hr", (double)apparentENERGY[PHASE_A], (double)apparentENERGY[PHASE_B], (double)apparentENERGY[PHASE_C]);
+    //             energyRead = false;
+    //         }
+    //         LOG_INF("\n");
+    //     }
 
-        k_sleep(K_MSEC(10));
-    }
+    //     k_sleep(K_MSEC(10));
+    // }
 
     LOG_DBG("ADE9000 power ic initialized");
 }
